@@ -1,0 +1,8 @@
+image: "python:3.6"
+
+before_script:
+    - pip install flake8
+
+style_check:
+    scripts:
+        - python -m flake8
