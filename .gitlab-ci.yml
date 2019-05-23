@@ -10,11 +10,15 @@ stages:
 
 flake8:
     stage: style_check
+    tags:
+        - docker
     script:
         - pip install flake8
         - python -m flake8
 
 test_main:
     stage: test
+    tags:
+        - docker
     script:
         - python main.py
