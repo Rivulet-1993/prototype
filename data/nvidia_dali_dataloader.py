@@ -1,4 +1,6 @@
 from nvidia.dali.plugin.pytorch import to_torch_type, feed_ndarray
+import nvidia.dali as dali
+from distutils.version import LooseVersion
 
 import torch
 from torch.utils.data import DataLoader
@@ -29,8 +31,9 @@ def _dataset_to_np_collate_fn(batch):
 def _dali_run_one_step(pipeline, output_categories, data_batches, output_map,
                        current_data_batch):
     p = pipeline
-
-    p._prefetch()
+    if LooseVersion(dali.__version__) <= LooseVersion('0.7.0'):
+        p._prefetch()
+    # p._prefetch()
     outputs = p._share_outputs()
 
     dev_id = p.device_id
@@ -75,7 +78,11 @@ def _dali_run_one_step(pipeline, output_categories, data_batches, output_map,
         feed_ndarray(tensor, pyt_tensors[category])
 
     p._release_outputs()
-    p._start_run()
+    # p._start_run()
+    if LooseVersion(dali.__version__) > LooseVersion('0.7.0'):
+        p._run()
+    else:
+        p._start_run()
 
     return [data_batches[current_data_batch][key] for key in output_map]
 
@@ -165,8 +172,14 @@ class _DaliDataLoaderIter(object):
         self._counter = 0
         self._current_data_batch = 0
         self._last_batch_size = 0
-        self._first_batch = None
+        # self._first_batch = None
         self._data_read_time = 0
+
+        if LooseVersion(dali.__version__) > LooseVersion('0.7.0'):
+            self.pipeline._run()
+
+        self._first_batch = None
+
         self._first_batch = self.next()
 
     def __len__(self):
