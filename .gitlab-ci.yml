@@ -14,7 +14,7 @@ flake8:
         - docker
     script:
         - pip install flake8
-        - python -m flake8
+        - python -m flake8 --max-line-length=120
 
 test_main:
     stage: test
