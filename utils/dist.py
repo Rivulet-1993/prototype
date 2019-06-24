@@ -1,5 +1,6 @@
 import os
 import torch
+import numpy as np
 import linklink as link
 
 
@@ -18,3 +19,17 @@ def dist_init(method='slurm', device_id=0):
     rank = link.get_rank()
 
     return rank, world_size
+
+
+def dist_finalize():
+    link.finalize()
+
+
+def simple_group_split(world_size, rank, num_groups):
+    groups = []
+    rank_list = np.split(np.arange(world_size), num_groups)
+    rank_list = [list(map(int, x)) for x in rank_list]
+    for i in range(num_groups):
+        groups.append(link.new_group(rank_list[i]))
+    group_size = world_size // num_groups
+    return groups[rank//group_size]
