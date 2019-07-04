@@ -1,6 +1,5 @@
 import os
 import argparse
-import pickle
 from easydict import EasyDict
 from tensorboardX import SummaryWriter
 import pprint
@@ -13,7 +12,7 @@ from solver.base_solver import BaseSolver
 from config import parse_config
 from utils.dist import dist_init, dist_finalize, DistModule
 from utils.misc import makedir, create_logger, get_logger, count_params, count_flops, \
-    param_group_all, AverageMeter, accuracy
+    param_group_all, AverageMeter, accuracy, load_state_model, load_state_optimizer
 from model import model_entry
 from optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD
 from lr_scheduler import scheduler_entry
@@ -23,8 +22,9 @@ from loss_functions import LabelSmoothCELoss
 
 class ClsSolver(BaseSolver):
 
-    def __init__(self, config_file):
+    def __init__(self, config_file, recover=''):
         self.config_file = config_file
+        self.recover = recover
         self.config = parse_config(config_file)
         self.setup_env()
         self.build_model()
@@ -51,10 +51,15 @@ class ClsSolver(BaseSolver):
         self.logger = get_logger(__name__)
         self.logger.info(f'config: {pprint.pformat(self.config)}')
         self.logger.info(f"hostnames: {os.environ['SLURM_NODELIST']}")
+        # recover
+        if self.recover:
+            self.state = torch.load(self.recover, 'cpu')
+            self.logger.info(f"======== recovering from {self.recover}, keys={list(self.state.keys())}... ========")
+        else:
+            self.state = {}
+            self.state['last_iter'] = -1
         # others
         torch.backends.cudnn.benchmark = True
-        self.state = EasyDict()
-        self.state.last_iter = -1
 
     def build_model(self):
         self.model = model_entry(self.config.model)
@@ -88,6 +93,9 @@ class ClsSolver(BaseSolver):
 
         self.model = DistModule(self.model, self.config.dist.sync)
 
+        if 'model' in self.state:
+            load_state_model(self.model, self.state['model'])
+
     def build_optimizer(self):
 
         opt_config = self.config.optimizer
@@ -111,15 +119,18 @@ class ClsSolver(BaseSolver):
 
         self.optimizer = optim_entry(opt_config)
 
+        if 'optimizer' in self.state:
+            load_state_optimizer(self.optimizer, self.state['optimizer'])
+
     def build_lr_scheduler(self):
         self.config.lr_scheduler.kwargs.optimizer = self.optimizer.optimizer if isinstance(self.optimizer, FP16SGD) or \
                                                         isinstance(self.optimizer, FP16RMSprop) else self.optimizer
-        self.config.lr_scheduler.kwargs.last_iter = self.state.last_iter
+        self.config.lr_scheduler.kwargs.last_iter = self.state['last_iter']
         self.lr_scheduler = scheduler_entry(self.config.lr_scheduler)
 
     def build_data(self):
         self.config.data.max_iter = self.config.lr_scheduler.kwargs.max_iter
-        self.config.data.last_iter = self.state.last_iter
+        self.config.data.last_iter = self.state['last_iter']
 
         self.train_data = make_imagenet_train_data(self.config.data)
         self.val_data = make_imagenet_val_data(self.config.data)
@@ -148,7 +159,7 @@ class ClsSolver(BaseSolver):
         self.pre_train()
 
         total_step = len(self.train_data['loader'])
-        start_step = self.state.last_iter + 1
+        start_step = self.state['last_iter'] + 1
 
         end = time.time()
 
@@ -238,19 +249,17 @@ class ClsSolver(BaseSolver):
                     self.tb_logger.add_scalar('acc1_val', prec1, curr_step)
                     self.tb_logger.add_scalar('acc5_val', prec5, curr_step)
 
-            #    if rank == 0:
-            #        if args.save_many:
-            #            ckpt_name = config.save_path+'/ckpt{}_{}'.format(args.suffix, curr_step)
-            #        else:
-            #            ckpt_name = config.save_path+'/ckpt{}'.format(args.suffix)
-            #        # remember best prec@1 and save checkpoint
-            #        ckpt = {
-            #            'step': curr_step,
-            #            'arch': config.model.arch,
-            #            'state_dict': model.state_dict(),
-            #            'optimizer' : optimizer.state_dict(),
-            #        }
-            #        save_checkpoint(ckpt, ckpt_name)
+                if self.dist.rank == 0:
+                    if self.config.save_many:
+                        ckpt_name = f'{self.path.save_path}/ckpt_{curr_step}.pth.tar'
+                    else:
+                        ckpt_name = f'{self.path.save_path}/ckpt.pth.tar'
+
+                    self.state['model'] = self.model.state_dict()
+                    self.state['optimizer'] = self.optimizer.state_dict()
+                    self.state['last_iter'] = curr_step
+
+                    torch.save(self.state, ckpt_name)
 
             end = time.time()
 
@@ -348,11 +357,7 @@ def main():
     args = parser.parse_args()
 
     # build or recover solver
-    if args.recover:
-        with open(args.recover, 'rb') as f:
-            solver = pickle.load(f)
-    else:
-        solver = ClsSolver(args.config)
+    solver = ClsSolver(args.config, recover=args.recover)
 
     # evaluate or train
     if args.evaluate:

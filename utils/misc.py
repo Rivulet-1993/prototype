@@ -274,3 +274,25 @@ def accuracy(output, target, topk=(1,)):
         correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
+
+
+def load_state_model(model, state):
+
+    logger = get_logger(__name__)
+    logger.info('======= loading model state... =======')
+
+    model.load_state_dict(state, strict=False)
+
+    state_keys = set(state.keys())
+    model_keys = set(model.state_dict().keys())
+    missing_keys = model_keys - state_keys
+    for k in missing_keys:
+        logger.warn(f'missing key: {k}')
+
+
+def load_state_optimizer(optimizer, state):
+
+    logger = get_logger(__name__)
+    logger.info('======= loading optimizer state... =======')
+
+    optimizer.load_state_dict(state)
