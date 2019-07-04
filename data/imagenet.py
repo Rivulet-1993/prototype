@@ -5,26 +5,31 @@ from torchvision import transforms
 from .datasets import ImageNetDataset
 from .pipelines import ImageNetTrainPipe, ImageNetValPipe
 from .nvidia_dali_dataloader import DaliDataLoader, dali_default_collate
-from .sampler import DistributedGivenIterationSampler, DistributedSampler
+from .sampler import DistributedGivenIterationSampler, DistributedEpochSampler, DistributedSampler
 
 
 def make_imagenet_train_data(config):
     """
     config fields:
         use_dali: bool
-        train_root: str
-        train_meta: str
         read_from: 'fake', 'mc', 'ceph', 'fs'
         batch_size: int
         dali_workers: int
+        workers: int
+        pin_memory: bool
+        epoch_wise_shuffle: bool
         input_size: int
+        test_resize: int
         augmentation:
             rotation: float
             colorjitter: bool
+        train_root: str
+        train_meta: str
+        val_root: str
+        val_meta: str
+
         max_iter: int
         last_iter: int
-        workers: int
-        pin_memory: bool
     """
 
     if config.use_dali:
@@ -39,11 +44,18 @@ def make_imagenet_train_data(config):
                                      config.input_size,
                                      colorjitter=config.augmentation.colorjitter)
 
-        sampler = DistributedGivenIterationSampler(
-                dataset=dataset,
-                total_iter=config.max_iter,
-                batch_size=config.batch_size,
-                last_iter=config.last_iter)
+        if config.epoch_wise_shuffle:
+            sampler = DistributedEpochSampler(
+                    dataset=dataset,
+                    total_iter=config.max_iter,
+                    batch_size=config.batch_size,
+                    last_iter=config.last_iter)
+        else:
+            sampler = DistributedGivenIterationSampler(
+                    dataset=dataset,
+                    total_iter=config.max_iter,
+                    batch_size=config.batch_size,
+                    last_iter=config.last_iter)
 
         torch_loader = DataLoader(
                 dataset, batch_size=config.batch_size, shuffle=False,
@@ -79,11 +91,18 @@ def make_imagenet_train_data(config):
                 transforms.Compose(aug),
                 read_from=config.read_from)
 
-        sampler = DistributedGivenIterationSampler(
-                dataset=dataset,
-                total_iter=config.max_iter,
-                batch_size=config.batch_size,
-                last_iter=config.last_iter)
+        if config.epoch_wise_shuffle:
+            sampler = DistributedEpochSampler(
+                    dataset=dataset,
+                    total_iter=config.max_iter,
+                    batch_size=config.batch_size,
+                    last_iter=config.last_iter)
+        else:
+            sampler = DistributedGivenIterationSampler(
+                    dataset=dataset,
+                    total_iter=config.max_iter,
+                    batch_size=config.batch_size,
+                    last_iter=config.last_iter)
 
         loader = DataLoader(
                 dataset, batch_size=config.batch_size, shuffle=False,
