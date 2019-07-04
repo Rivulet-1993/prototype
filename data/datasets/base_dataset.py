@@ -1,8 +1,8 @@
 import mc
 from torch.utils.data import Dataset
 import numpy as np
-import ceph
-from petrel_client.client import Client
+# import ceph
+# from petrel_client.client import Client
 
 
 class BaseDataset(Dataset):
@@ -19,12 +19,12 @@ class BaseDataset(Dataset):
 
     def _init_ceph(self):
         if not self.initialized:
-            self.s3_client = ceph.S3Client()
+            # self.s3_client = ceph.S3Client()
             self.initialized = True
 
     def _init_petrel(self):
         if not self.initialized:
-            self.client = Client(enable_mc=True)
+            # self.client = Client(enable_mc=True)
             self.initialized = True
 
     def read_file(self, filepath):
