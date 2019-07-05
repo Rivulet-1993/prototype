@@ -1,8 +1,3 @@
-import torch
-import numpy as np
-
-import linklink as link
-
 try:
     import linklink.dali as link_dali
 except ModuleNotFoundError:
@@ -10,6 +5,7 @@ except ModuleNotFoundError:
 
 import nvidia.dali.ops as ops
 import nvidia.dali.types as types
+
 
 class ImageNetTrainPipeV2(link_dali.CustomPipeline):
     def __init__(self, data_root, data_list, sampler, crop, colorjitter=None):
@@ -22,30 +18,29 @@ class ImageNetTrainPipeV2(link_dali.CustomPipeline):
         self.colorjitter = colorjitter
 
         dali_device = "gpu"
-        # This padding sets the size of the internal nvJPEG buffers to be able to handle all images from full-sized ImageNet
-        # without additional reallocations
-        self.decode = ops.nvJPEGDecoder(device="mixed", output_type=types.RGB, 
-                                        device_memory_padding=211025920, 
+        # This padding sets the size of the internal nvJPEG buffers to be able to handle all
+        # images from full-sized ImageNet without additional reallocations
+        self.decode = ops.nvJPEGDecoder(device="mixed", output_type=types.RGB,
+                                        device_memory_padding=211025920,
                                         host_memory_padding=140544512)
 
-        self.res = ops.RandomResizedCrop(device=dali_device, size =(crop, crop))
+        self.res = ops.RandomResizedCrop(device=dali_device, size=(crop, crop))
 
         self.cmnp = ops.CropMirrorNormalize(device="gpu",
                                             output_dtype=types.FLOAT,
                                             output_layout=types.NCHW,
                                             crop=(crop, crop),
                                             image_type=types.RGB,
-                                            mean=[0.485 * 255,0.456 * 255,0.406 * 255],
-                                            std=[0.229 * 255,0.224 * 255,0.225 * 255])
+                                            mean=[0.485 * 255, 0.456 * 255, 0.406 * 255],
+                                            std=[0.229 * 255, 0.224 * 255, 0.225 * 255])
         self.coin = ops.CoinFlip(probability=0.5)
 
         if self.colorjitter is not None:
             self.colorjit = ops.ColorTwist(device="gpu")
-            self.rng_brightness = ops.Uniform(range = (1.0 - self.colorjitter[0], 1.0 + self.colorjitter[0]))
-            self.rng_contrast = ops.Uniform(range = (1.0 - self.colorjitter[1], 1.0 + self.colorjitter[1]))
-            self.rng_saturation = ops.Uniform(range = (1.0 - self.colorjitter[2], 1.0 + self.colorjitter[2]))
-            self.rng_hue = ops.Uniform(range = (-self.colorjitter[3], self.colorjitter[3]))
-
+            self.rng_brightness = ops.Uniform(range=(1.0 - self.colorjitter[0], 1.0 + self.colorjitter[0]))
+            self.rng_contrast = ops.Uniform(range=(1.0 - self.colorjitter[1], 1.0 + self.colorjitter[1]))
+            self.rng_saturation = ops.Uniform(range=(1.0 - self.colorjitter[2], 1.0 + self.colorjitter[2]))
+            self.rng_hue = ops.Uniform(range=(-self.colorjitter[3], self.colorjitter[3]))
 
     def define_graph(self):
         rng = self.coin()
@@ -53,12 +48,13 @@ class ImageNetTrainPipeV2(link_dali.CustomPipeline):
         images = self.decode(datas)
         images = self.res(images)
         if self.colorjitter is not None:
-            images = self.colorjit(images, brightness = self.rng_brightness(), 
-                                contrast = self.rng_contrast(),
-                                saturation = self.rng_saturation(),
-                                hue = self.rng_hue())
+            images = self.colorjit(images, brightness=self.rng_brightness(),
+                                   contrast=self.rng_contrast(),
+                                   saturation=self.rng_saturation(),
+                                   hue=self.rng_hue())
         output = self.cmnp(images, mirror=rng)
         return [output, labels]
+
 
 class ImageNetValPipeV2(link_dali.CustomPipeline):
     def __init__(self, data_root, data_list, sampler, crop, size):
@@ -75,8 +71,8 @@ class ImageNetValPipeV2(link_dali.CustomPipeline):
                                             output_layout=types.NCHW,
                                             crop=(crop, crop),
                                             image_type=types.RGB,
-                                            mean=[0.485 * 255,0.456 * 255,0.406 * 255],
-                                            std=[0.229 * 255,0.224 * 255,0.225 * 255])
+                                            mean=[0.485 * 255, 0.456 * 255, 0.406 * 255],
+                                            std=[0.229 * 255, 0.224 * 255, 0.225 * 255])
 
     def define_graph(self):
         datas, labels = self.mc_input()

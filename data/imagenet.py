@@ -89,10 +89,10 @@ def make_imagenet_train_data(config):
                     last_iter=config.last_iter)
 
         pipeline = ImageNetTrainPipeV2(config.train_root,
-                                     config.train_meta,
-                                     sampler,
-                                     config.input_size,
-                                     colorjitter=config.augmentation.colorjitter)
+                                       config.train_meta,
+                                       sampler,
+                                       config.input_size,
+                                       colorjitter=config.augmentation.colorjitter)
 
         loader = link_dali.DataLoader(pipeline, config.batch_size, len(sampler), config.dali_workers)
 
@@ -166,7 +166,7 @@ def make_imagenet_val_data(config):
                 collate_fn=dali_default_collate)
 
         loader = DaliDataLoader(pipeline, dataloader=torch_loader)
-    
+
     elif config.use_dali_v2:
 
         dataset = ImageNetDataset(
