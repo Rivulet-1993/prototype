@@ -178,6 +178,7 @@ class _DaliDataLoaderIter(object):
         if LooseVersion(dali.__version__) > LooseVersion('0.7.0'):
             self.pipeline._run()
 
+        self._prefetch_counter = 0
         self._first_batch = None
 
         self._first_batch = self.next()
@@ -223,9 +224,11 @@ class _DaliDataLoaderIter(object):
             self._first_batch = None
             return batch
 
-        if self._counter >= self.size:
-            self.reset()
-            raise StopIteration
+        if self.pipeline._last_iter:
+            self._prefetch_counter += 1
+            if self._prefetch_counter == self.pipeline._prefetch_queue_depth:
+                self.reset()
+                raise StopIteration
 
         batch = _dali_run_one_step(self.pipeline, self._output_categories,
                                    self._data_batches, self.output_map,

@@ -142,8 +142,8 @@ def make_imagenet_val_data(config):
                 config.val_root,
                 config.val_meta,
                 transforms.Compose([
-                    transforms.Resize(config.augmentation.test_resize),
-                    transforms.CenterCrop(config.augmentation.input_size),
+                    transforms.Resize(config.test_resize),
+                    transforms.CenterCrop(config.input_size),
                     transforms.ToTensor(),
                     normalize,
                 ]),

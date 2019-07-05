@@ -54,7 +54,7 @@ class ClsSolver(BaseSolver):
         # recover
         if self.recover:
             self.state = torch.load(self.recover, 'cpu')
-            self.logger.info(f"======== recovering from {self.recover}, keys={list(self.state.keys())}... ========")
+            self.logger.info(f"======= recovering from {self.recover}, keys={list(self.state.keys())}... =======")
         else:
             self.state = {}
             self.state['last_iter'] = -1
