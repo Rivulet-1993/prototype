@@ -3,9 +3,14 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from .datasets import ImageNetDataset
-from .pipelines import ImageNetTrainPipe, ImageNetValPipe
+from .pipelines import ImageNetTrainPipe, ImageNetValPipe, ImageNetTrainPipeV2, ImageNetValPipeV2
 from .nvidia_dali_dataloader import DaliDataLoader, dali_default_collate
 from .sampler import DistributedGivenIterationSampler, DistributedEpochSampler, DistributedSampler
+
+try:
+    import linklink.dali as link_dali
+except ModuleNotFoundError:
+    print('import linklink.dali failed, linklink version should >= 0.2.0')
 
 
 def make_imagenet_train_data(config):
@@ -63,6 +68,34 @@ def make_imagenet_train_data(config):
                 collate_fn=dali_default_collate)
 
         loader = DaliDataLoader(pipeline, dataloader=torch_loader)
+
+    elif config.use_dali_v2:
+        dataset = ImageNetDataset(
+            config.train_root,
+            config.train_meta,
+            read_from=config.read_from)
+
+        if config.epoch_wise_shuffle:
+            sampler = DistributedEpochSampler(
+                    dataset=dataset,
+                    total_iter=config.max_iter,
+                    batch_size=config.batch_size,
+                    last_iter=config.last_iter)
+        else:
+            sampler = DistributedGivenIterationSampler(
+                    dataset=dataset,
+                    total_iter=config.max_iter,
+                    batch_size=config.batch_size,
+                    last_iter=config.last_iter)
+
+        pipeline = ImageNetTrainPipeV2(config.train_root,
+                                     config.train_meta,
+                                     sampler,
+                                     config.input_size,
+                                     colorjitter=config.augmentation.colorjitter)
+
+        loader = link_dali.DataLoader(pipeline, config.batch_size, len(sampler), config.dali_workers)
+
     else:
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                          std=[0.229, 0.224, 0.225])
@@ -133,6 +166,23 @@ def make_imagenet_val_data(config):
                 collate_fn=dali_default_collate)
 
         loader = DaliDataLoader(pipeline, dataloader=torch_loader)
+    
+    elif config.use_dali_v2:
+
+        dataset = ImageNetDataset(
+            config.val_root,
+            config.val_meta,
+            read_from=config.read_from)
+
+        sampler = DistributedSampler(dataset, round_up=False)
+
+        pipeline = ImageNetValPipeV2(config.val_root,
+                                     config.val_meta,
+                                     sampler,
+                                     config.input_size,
+                                     config.test_resize)
+
+        loader = link_dali.DataLoader(pipeline, config.batch_size, len(sampler), config.dali_workers)
 
     else:
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
