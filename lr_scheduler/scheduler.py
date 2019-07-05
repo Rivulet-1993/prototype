@@ -55,7 +55,7 @@ class _WarmUpLRScheduler(_LRScheduler):
 
 
 class StepLRScheduler(_WarmUpLRScheduler):
-    def __init__(self, optimizer, lr_steps, lr_mults, base_lr, warmup_lr, warmup_steps, last_iter=0):
+    def __init__(self, optimizer, lr_steps, lr_mults, base_lr, warmup_lr, warmup_steps, max_iter, last_iter=0):
         super(StepLRScheduler, self).__init__(optimizer, base_lr, warmup_lr, warmup_steps, last_iter)
 
         assert len(lr_steps) == len(lr_mults), "{} vs {}".format(lr_steps, lr_mults)
@@ -83,7 +83,7 @@ Step = StepLRScheduler
 
 
 class StepDecayLRScheduler(_WarmUpLRScheduler):
-    def __init__(self, optimizer, step_size, decay, base_lr, warmup_lr, warmup_steps, last_iter=0):
+    def __init__(self, optimizer, step_size, decay, base_lr, warmup_lr, warmup_steps, max_iter, last_iter=0):
         super(StepDecayLRScheduler, self).__init__(optimizer, base_lr, warmup_lr, warmup_steps, last_iter)
 
         self.step_size = step_size
