@@ -56,7 +56,7 @@ class DistributedSampler(Sampler):
 
 
 class DistributedGivenIterationSampler(Sampler):
-    def __init__(self, dataset, total_iter, batch_size, world_size=None, rank=None, last_iter=-1):
+    def __init__(self, dataset, total_iter, batch_size, world_size=None, rank=None, last_iter=0):
         if world_size is None:
             world_size = link.get_world_size()
         if rank is None:
@@ -77,7 +77,7 @@ class DistributedGivenIterationSampler(Sampler):
     def __iter__(self):
         if self.call == 0:
             self.call = 1
-            return iter(self.indices[(self.last_iter+1)*self.batch_size:])
+            return iter(self.indices[self.last_iter*self.batch_size:])
         else:
             raise RuntimeError("this sampler is not designed to be called more than once!!")
 
@@ -105,12 +105,11 @@ class DistributedGivenIterationSampler(Sampler):
         # note here we do not take last iter into consideration, since __len__
         # should only be used for displaying, the correct remaining size is
         # handled by dataloader
-        # return self.total_size - (self.last_iter+1)*self.batch_size
         return self.total_size
 
 
 class DistributedEpochSampler(Sampler):
-    def __init__(self, dataset, total_iter, batch_size, world_size=None, rank=None, last_iter=-1):
+    def __init__(self, dataset, total_iter, batch_size, world_size=None, rank=None, last_iter=0):
         if world_size is None:
             world_size = link.get_world_size()
         if rank is None:
@@ -131,7 +130,7 @@ class DistributedEpochSampler(Sampler):
     def __iter__(self):
         if self.call == 0:
             self.call = 1
-            return iter(self.indices[(self.last_iter+1)*self.batch_size:])
+            return iter(self.indices[self.last_iter*self.batch_size:])
         else:
             raise RuntimeError("this sampler is not designed to be called more than once!!")
 

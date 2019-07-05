@@ -57,7 +57,7 @@ class ClsSolver(BaseSolver):
             self.logger.info(f"======= recovering from {self.recover}, keys={list(self.state.keys())}... =======")
         else:
             self.state = {}
-            self.state['last_iter'] = -1
+            self.state['last_iter'] = 0
         # others
         torch.backends.cudnn.benchmark = True
 
@@ -321,8 +321,8 @@ class ClsSolver(BaseSolver):
                 batch_time.update(time.time() - end)
                 end = time.time()
 
-                if i % self.config.print_freq == 0:
-                    self.logger.info(f'Test: [{i}/{val_iter}]\tTime {batch_time.val:.3f} ({batch_time.avg:.3f})')
+                if (i+1) % self.config.print_freq == 0:
+                    self.logger.info(f'Test: [{i+1}/{val_iter}]\tTime {batch_time.val:.3f} ({batch_time.avg:.3f})')
 
         # gather final results
         total_num = torch.Tensor([losses.count])

@@ -4,12 +4,12 @@ import math
 
 
 class _LRScheduler(object):
-    def __init__(self, optimizer, last_iter=-1):
+    def __init__(self, optimizer, last_iter=0):
         if not isinstance(optimizer, torch.optim.Optimizer):
             raise TypeError('{} is not an Optimizer'.format(
                 type(optimizer).__name__))
         self.optimizer = optimizer
-        if last_iter == -1:
+        if last_iter == 0:
             for group in optimizer.param_groups:
                 group.setdefault('initial_lr', group['lr'])
         else:
@@ -36,26 +36,26 @@ class _LRScheduler(object):
 
 class _WarmUpLRScheduler(_LRScheduler):
 
-    def __init__(self, optimizer, base_lr, warmup_lr, warmup_steps, last_iter=-1):
-        self.base_lr = base_lr
-        self.warmup_steps = warmup_steps
+    def __init__(self, optimizer, base_lr, warmup_lr, warmup_steps, last_iter=0):
+        assert warmup_steps >= 2 or warmup_steps == 0
         if warmup_steps == 0:
-            self.warmup_lr = base_lr
-        else:
-            self.warmup_lr = warmup_lr
+            assert base_lr == warmup_lr
+        self.base_lr = base_lr
+        self.warmup_lr = warmup_lr
+        self.warmup_steps = warmup_steps
         super(_WarmUpLRScheduler, self).__init__(optimizer, last_iter)
 
     def _get_warmup_lr(self):
-        if self.warmup_steps > 0 and self.last_iter < self.warmup_steps:
-            # first compute relative scale for self.base_lr, then multiply to base_lr
-            scale = ((self.last_iter/self.warmup_steps)*(self.warmup_lr - self.base_lr) + self.base_lr)/self.base_lr
+        if self.warmup_steps >= 2 and self.last_iter < self.warmup_steps:
+            target_lr = (self.warmup_lr - self.base_lr) / (self.warmup_steps-1) * (self.last_iter-1) + self.base_lr
+            scale = target_lr / self.base_lr
             return [scale * base_lr for base_lr in self.base_lrs]
         else:
             return None
 
 
 class StepLRScheduler(_WarmUpLRScheduler):
-    def __init__(self, optimizer, lr_steps, lr_mults, base_lr, warmup_lr, warmup_steps, last_iter=-1):
+    def __init__(self, optimizer, lr_steps, lr_mults, base_lr, warmup_lr, warmup_steps, last_iter=0):
         super(StepLRScheduler, self).__init__(optimizer, base_lr, warmup_lr, warmup_steps, last_iter)
 
         assert len(lr_steps) == len(lr_mults), "{} vs {}".format(lr_steps, lr_mults)
@@ -83,7 +83,7 @@ Step = StepLRScheduler
 
 
 class StepDecayLRScheduler(_WarmUpLRScheduler):
-    def __init__(self, optimizer, step_size, decay, base_lr, warmup_lr, warmup_steps, last_iter=-1):
+    def __init__(self, optimizer, step_size, decay, base_lr, warmup_lr, warmup_steps, last_iter=0):
         super(StepDecayLRScheduler, self).__init__(optimizer, base_lr, warmup_lr, warmup_steps, last_iter)
 
         self.step_size = step_size
@@ -103,7 +103,7 @@ StepDecay = StepDecayLRScheduler
 
 
 class CosineLRScheduler(_WarmUpLRScheduler):
-    def __init__(self, optimizer, max_iter, min_lr, base_lr, warmup_lr, warmup_steps, last_iter=-1):
+    def __init__(self, optimizer, max_iter, min_lr, base_lr, warmup_lr, warmup_steps, last_iter=0):
         super(CosineLRScheduler, self).__init__(optimizer, base_lr, warmup_lr, warmup_steps, last_iter)
         self.max_iter = max_iter
         self.min_lr = min_lr
