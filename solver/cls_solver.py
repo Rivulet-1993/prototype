@@ -13,6 +13,7 @@ from config import parse_config
 from utils.dist import dist_init, dist_finalize, DistModule
 from utils.misc import makedir, create_logger, get_logger, count_params, count_flops, \
     param_group_all, AverageMeter, accuracy, load_state_model, load_state_optimizer
+from utils.ema import EMA
 from model import model_entry
 from optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD
 from lr_scheduler import scheduler_entry
@@ -122,6 +123,16 @@ class ClsSolver(BaseSolver):
         if 'optimizer' in self.state:
             load_state_optimizer(self.optimizer, self.state['optimizer'])
 
+        # EMA
+        if self.config.ema.enable:
+            self.config.ema.kwargs.model = self.model
+            self.ema = EMA(**self.config.ema.kwargs)
+        else:
+            self.ema = None
+
+        if 'ema' in self.state:
+            self.ema.load_state_dict(self.state['ema'])
+
     def build_lr_scheduler(self):
         self.config.lr_scheduler.kwargs.optimizer = self.optimizer.optimizer if isinstance(self.optimizer, FP16SGD) or \
                                                         isinstance(self.optimizer, FP16RMSprop) else self.optimizer
@@ -211,6 +222,10 @@ class ClsSolver(BaseSolver):
                 self.model.sync_gradients()
                 self.optimizer.step()
 
+            # EMA
+            if self.ema is not None:
+                self.ema.step(self.model, curr_step=curr_step)
+
             # measure elapsed time
             self.meters.batch_time.update(time.time() - end)
 
@@ -235,14 +250,14 @@ class ClsSolver(BaseSolver):
 
             if curr_step > 0 and curr_step % self.config.val_freq == 0:
                 val_loss, prec1, prec5 = self.evaluate()
-            #    if ema is not None:
-            #        ema.load_ema(model)
-            #        val_loss_ema, prec1_ema, prec5_ema = validate(val_loader, model)
-            #        ema.recover(model)
-            #        if not tb_logger is None:
-            #            tb_logger.add_scalars('loss_val', {'ema': val_loss_ema}, curr_step)
-            #            tb_logger.add_scalars('acc1_val', {'ema': prec1_ema}, curr_step)
-            #            tb_logger.add_scalars('acc5_val', {'ema': prec5_ema}, curr_step)
+                if self.ema is not None:
+                    self.ema.load_ema(self.model)
+                    val_loss_ema, prec1_ema, prec5_ema = self.evaluate()
+                    self.ema.recover(self.model)
+                    if self.dist.rank == 0:
+                        self.tb_logger.add_scalars('loss_val', {'ema': val_loss_ema}, curr_step)
+                        self.tb_logger.add_scalars('acc1_val', {'ema': prec1_ema}, curr_step)
+                        self.tb_logger.add_scalars('acc5_val', {'ema': prec5_ema}, curr_step)
 
                 if self.dist.rank == 0:
                     self.tb_logger.add_scalar('loss_val', val_loss, curr_step)
@@ -258,6 +273,8 @@ class ClsSolver(BaseSolver):
                     self.state['model'] = self.model.state_dict()
                     self.state['optimizer'] = self.optimizer.state_dict()
                     self.state['last_iter'] = curr_step
+                    if self.ema is not None:
+                        self.state['ema'] = self.ema.state_dict()
 
                     torch.save(self.state, ckpt_name)
 
