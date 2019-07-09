@@ -26,11 +26,11 @@ class FP16SGD(FP16_Optimizer):
 
 class FP16RMSprop(FP16_Optimizer):
 
-    def __init__(self, params, lr=required, alpha=0.99, eps=1e-08, nesterov=False,
+    def __init__(self, params, lr=required, alpha=0.99, eps=1e-08,
                  weight_decay=0, momentum=0, centered=False, loss_scale='dynamic', verbose=False):
 
         optimizer = RMSprop(params, lr=lr, alpha=alpha, eps=eps, weight_decay=weight_decay,
-                            momentum=momentum, nesterov=nesterov, centered=centered)
+                            momentum=momentum, centered=centered)
 
         dynamic_loss_scale = False
         static_loss_scale = 1.0

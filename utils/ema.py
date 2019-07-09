@@ -2,14 +2,17 @@ import torch
 from collections import OrderedDict
 from utils.misc import get_logger
 
+
 class EMA(object):
-    def __init__(self, model, decay, copy_init=False, use_double=False, inner_T=1):
+    def __init__(self, model, decay, copy_init=False, use_double=False, inner_T=1, warmup=1):
         self.ema_state_dict = OrderedDict()
         self.logger = get_logger(__name__)
-        self.logger.info('EMA: decay={}, copy_init={}, use_double={}, inner_T={}'.format(decay, copy_init, use_double, inner_T))
+        self.logger.info(f'EMA: decay={decay}, copy_init={copy_init}, \
+            use_double={use_double}, inner_T={inner_T}, warmup={warmup}')
         self.use_double = use_double
         self.inner_T = inner_T
         self.decay = decay
+        self.warmup = warmup
         if self.inner_T > 1:
             self.decay = self.decay ** self.inner_T
             self.logger.info('EMA: effective decay={}'.format(self.decay))
@@ -33,25 +36,25 @@ class EMA(object):
         if curr_step is None:
             decay = self.decay
         else:
-            decay = min(self.decay, (1+curr_step)/(10+curr_step))
+            decay = min(self.decay, (1+curr_step)/(self.warmup+curr_step))
 
         if curr_step % self.inner_T != 0:
-            return 
+            return
 
         state_dict = model.state_dict()
         if self.use_double:
             for k, v in state_dict.items():
-                self.ema_state_dict[k].mul_(self.decay).add_(1-self.decay, v.double())
+                self.ema_state_dict[k].mul_(decay).add_(1-decay, v.double())
         else:
             for k, v in state_dict.items():
-                self.ema_state_dict[k].mul_(self.decay).add_(1-self.decay, v.float())
+                self.ema_state_dict[k].mul_(decay).add_(1-decay, v.float())
 
     def load_ema(self, model):
         for k, v in model.state_dict().items():
             tmp = v.data.clone()
             v.data.copy_(self.ema_state_dict[k].data)
             self.ema_state_dict[k].data.copy_(tmp)
-            
+
     def recover(self, model):
         state_dict = model.state_dict()
         for k, v in self.ema_state_dict.items():
