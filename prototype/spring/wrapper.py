@@ -218,7 +218,8 @@ class ClsSpringCommonInterface(SpringCommonInterface):
         return self.solver.lr_scheduler
 
     def get_dummy_input(self):
-        return torch.zeros(1, 3, self.solver.config.data.input_size, self.solver.config.data.input_size).cuda()
+        input = torch.zeros(1, 3, self.solver.config.data.input_size, self.solver.config.data.input_size)
+        return input.cuda().half() if self.solver.fp16 else input.cuda()
 
     def get_dump_dict(self):
         return self.solver.get_dump_dict()
@@ -315,7 +316,7 @@ def main():
     if args.test_sci:
         sci = ClsSpringCommonInterface(config=config, work_dir=work_dir, metric_dict=None)
         sci.logger.warn('init done')
-        ckpt_dict = torch.load('checkpoints/ckpt_100.pth.tar', 'cpu')
+        ckpt_dict = torch.load('checkpoints/ckpt_5000.pth.tar', 'cpu')
         sci = ClsSpringCommonInterface(config=config, work_dir=work_dir, metric_dict=None, ckpt_dict=ckpt_dict)
         sci.logger.warn('init with ckpt_dict done')
         model = sci.get_model()
