@@ -3,6 +3,15 @@ import torch
 import numpy as np
 import linklink as link
 
+def link_dist(func):
+    
+    def wrapper(*args, **kwargs):
+        dist_init()
+        func(*args, **kwargs)
+        dist_finalize()
+
+    return wrapper
+
 
 def dist_init(method='slurm', device_id=0):
     if method == 'slurm':

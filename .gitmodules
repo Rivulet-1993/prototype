@@ -1,0 +1,4 @@
+[submodule "SpringCommonInterface"]
+	path = SpringCommonInterface
+	url = git@gitlab.bj.sensetime.com:SpringExplorer/SpringCommonInterface.git
+	branch = master

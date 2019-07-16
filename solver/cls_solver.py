@@ -10,7 +10,7 @@ import linklink as link
 
 from solver.base_solver import BaseSolver
 from config import parse_config
-from utils.dist import dist_init, dist_finalize, DistModule
+from utils.dist import link_dist, DistModule
 from utils.misc import makedir, create_logger, get_logger, count_params, count_flops, \
     param_group_all, AverageMeter, accuracy, load_state_model, load_state_optimizer
 from utils.ema import EMA
@@ -36,7 +36,7 @@ class ClsSolver(BaseSolver):
     def setup_env(self):
         # dist
         self.dist = EasyDict()
-        self.dist.rank, self.dist.world_size = dist_init()
+        self.dist.rank, self.dist.world_size = link.get_rank(), link.get_world_size()
         # directories
         self.path = EasyDict()
         self.path.root_path = os.path.dirname(self.config_file)
@@ -361,10 +361,8 @@ class ClsSolver(BaseSolver):
 
         return final_loss, final_top1, final_top5
 
-    def __del__(self):
-        dist_finalize()
 
-
+@link_dist
 def main():
     parser = argparse.ArgumentParser(description='base solver')
     parser.add_argument('--config', required=True, type=str)
