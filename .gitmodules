@@ -1,4 +1,3 @@
-[submodule "SpringCommonInterface"]
-	path = SpringCommonInterface
+[submodule "prototype/spring/SpringCommonInterface"]
+	path = prototype/spring/SpringCommonInterface
 	url = git@gitlab.bj.sensetime.com:SpringExplorer/SpringCommonInterface.git
-	branch = master

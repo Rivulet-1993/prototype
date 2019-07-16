@@ -8,17 +8,17 @@ import datetime
 import torch
 import linklink as link
 
-from solver.base_solver import BaseSolver
-from config import parse_config
-from utils.dist import link_dist, DistModule
-from utils.misc import makedir, create_logger, get_logger, count_params, count_flops, \
+from .base_solver import BaseSolver
+from prototype.config import parse_config
+from prototype.utils.dist import link_dist, DistModule
+from prototype.utils.misc import makedir, create_logger, get_logger, count_params, count_flops, \
     param_group_all, AverageMeter, accuracy, load_state_model, load_state_optimizer
-from utils.ema import EMA
-from model import model_entry
-from optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD
-from lr_scheduler import scheduler_entry
-from data import make_imagenet_train_data, make_imagenet_val_data
-from loss_functions import LabelSmoothCELoss
+from prototype.utils.ema import EMA
+from prototype.model import model_entry
+from prototype.optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD
+from prototype.lr_scheduler import scheduler_entry
+from prototype.data import make_imagenet_train_data, make_imagenet_val_data
+from prototype.loss_functions import LabelSmoothCELoss
 
 
 class ClsSolver(BaseSolver):

@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.nn import init
 
 import linklink as link
-from utils.misc import get_bn
+from prototype.utils.misc import get_bn
 
 __all__ = ['mobilenet_v2']
 

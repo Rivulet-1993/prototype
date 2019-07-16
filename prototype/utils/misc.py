@@ -5,7 +5,7 @@ import linklink as link
 from collections import defaultdict
 import numpy as np
 
-from utils.dist import simple_group_split
+from .dist import simple_group_split
 
 _logger = None
 _log_file = None

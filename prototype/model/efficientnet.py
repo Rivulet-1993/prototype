@@ -9,7 +9,7 @@ import re
 import collections
 from collections import OrderedDict
 
-from utils.misc import get_logger, get_bn
+from prototype.utils.misc import get_logger, get_bn
 
 BN = None
 

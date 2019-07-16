@@ -1,7 +1,7 @@
 import torch.nn as nn
 import math
 from linklink.nn import SyncBatchNorm2d
-from utils.misc import get_logger, get_bn
+from prototype.utils.misc import get_logger, get_bn
 
 BN = None
 

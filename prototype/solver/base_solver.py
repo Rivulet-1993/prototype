@@ -1,7 +1,7 @@
 import argparse
 import pickle
-from config import parse_config
 from pprint import pprint
+from prototype.config import parse_config
 
 
 class BaseSolver(object):

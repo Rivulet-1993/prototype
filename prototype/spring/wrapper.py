@@ -7,14 +7,14 @@ import torch
 import copy
 import linklink as link
 
-from config import parse_config
-from utils.dist import link_dist, DistModule
-from utils.misc import accuracy
-from model import model_entry
-from optimizer import FusedFP16SGD, SGD
+from prototype.config import parse_config
+from prototype.utils.dist import link_dist, DistModule
+from prototype.utils.misc import accuracy
+from prototype.model import model_entry
+from prototype.optimizer import FusedFP16SGD, SGD
+from prototype.solver.cls_solver import ClsSolver
 
-from SpringCommonInterface import Metric, SpringCommonInterface
-from solver.cls_solver import ClsSolver
+from .SpringCommonInterface import Metric, SpringCommonInterface
 
 
 class ClsMetric(Metric):
