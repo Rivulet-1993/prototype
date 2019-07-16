@@ -47,13 +47,18 @@ class ClsMetric(Metric):
 
 class ClsSolverExchange(ClsSolver):
 
-    def __init__(self, config=None, work_dir=None, recover=''):
+    def __init__(self, config=None, work_dir=None, recover_dict=None):
         self.work_dir = work_dir
         self.config_file = os.path.join(work_dir, 'config.yaml')
-        self.recover = recover
+        self.recover = ''  # set recover to ''
         self.config = copy.deepcopy(EasyDict(config))
         self.config_copy = copy.deepcopy(self.config)
         self.setup_env()
+        # set recover with recover_dict here
+        if recover_dict:
+            self.state = recover_dict
+            self.logger.info(f"======= recovering from recover_dict, keys={list(self.state.keys())}... =======")
+
         self.build_model()
         self.build_optimizer()
         self.build_lr_scheduler()
@@ -199,8 +204,8 @@ class ClsSolverExchange(ClsSolver):
 
 class ClsSpringCommonInterface(SpringCommonInterface):
 
-    def __init__(self, config=None, work_dir=None, metric_dict=None):
-        self.solver = ClsSolverExchange(config=config, work_dir=work_dir)
+    def __init__(self, config=None, work_dir=None, metric_dict=None, ckpt_dict=None):
+        self.solver = ClsSolverExchange(config=config, work_dir=work_dir, recover_dict=ckpt_dict)
         self.metric_dict = metric_dict
 
     def get_model(self):
@@ -229,9 +234,6 @@ class ClsSpringCommonInterface(SpringCommonInterface):
 
     def backward(self, loss):
         self.solver.backward(loss)
-
-    def resume(self, ckpt_dict):
-        pass
 
     def update(self):
         self.solver.update()
@@ -312,7 +314,10 @@ def main():
 
     if args.test_sci:
         sci = ClsSpringCommonInterface(config=config, work_dir=work_dir, metric_dict=None)
-        sci.solver.logger.info('init done')
+        sci.logger.warn('init done')
+        ckpt_dict = torch.load('checkpoints/ckpt_100.pth.tar', 'cpu')
+        sci = ClsSpringCommonInterface(config=config, work_dir=work_dir, metric_dict=None, ckpt_dict=ckpt_dict)
+        sci.logger.warn('init with ckpt_dict done')
         model = sci.get_model()
         sci.logger.warn('get_model done')
         sci.get_optimizer()
@@ -337,7 +342,6 @@ def main():
         # sci.logger.warn('train done')
         sci.evaluate()
         sci.logger.warn('evaluate done')
-        ckpt_dict = torch.load('checkpoints/ckpt_100.pth.tar', 'cpu')
         sci.load_weights(model, ckpt_dict)
         sci.logger.warn('load_weights done')
         sci.build_model_helper(ckpt_path='checkpoints/ckpt_100.pth.tar')

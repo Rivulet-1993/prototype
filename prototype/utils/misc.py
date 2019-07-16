@@ -8,7 +8,8 @@ import numpy as np
 from .dist import simple_group_split
 
 _logger = None
-_log_file = None
+_logger_fh = None
+_logger_names = []
 
 
 class AverageMeter(object):
@@ -59,7 +60,7 @@ class RankFilter(logging.Filter):
 
 
 def create_logger(log_file, level=logging.INFO):
-    global _logger, _log_file
+    global _logger, _logger_fh
     if _logger is None:
         _logger = logging.getLogger()
         formatter = logging.Formatter('[%(asctime)s][%(filename)15s][line:%(lineno)4d][%(levelname)8s] %(message)s')
@@ -70,17 +71,24 @@ def create_logger(log_file, level=logging.INFO):
         _logger.setLevel(level)
         _logger.addHandler(fh)
         _logger.addHandler(sh)
-        _log_file = log_file
-    elif _log_file != log_file:
-        raise RuntimeError(f'calling create_logger with log_file={log_file}, '
-                           f'but previously called with log_file={_log_file}')
+        _logger_fh = fh
+    else:
+        _logger.removeHandler(_logger_fh)
+        _logger.setLevel(level)
+
     return _logger
 
 
 def get_logger(name, level=logging.INFO):
+    global _logger_names
     logger = logging.getLogger(name)
+    if name in _logger_names:
+        return logger
+
+    _logger_names.append(name)
     if link.get_rank() > 0:
         logger.addFilter(RankFilter())
+
     return logger
 
 
