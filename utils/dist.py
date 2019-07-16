@@ -3,8 +3,9 @@ import torch
 import numpy as np
 import linklink as link
 
+
 def link_dist(func):
-    
+
     def wrapper(*args, **kwargs):
         dist_init()
         func(*args, **kwargs)

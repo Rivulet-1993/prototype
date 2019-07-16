@@ -10,6 +10,7 @@ from utils.dist import simple_group_split
 _logger = None
 _log_file = None
 
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
     def __init__(self, length=0):
@@ -71,7 +72,8 @@ def create_logger(log_file, level=logging.INFO):
         _logger.addHandler(sh)
         _log_file = log_file
     elif _log_file != log_file:
-        raise RuntimeError(f'calling create_logger with log_file={log_file}, but previously called with log_file={_log_file}')
+        raise RuntimeError(f'calling create_logger with log_file={log_file}, '
+                           f'but previously called with log_file={_log_file}')
     return _logger
 
 

@@ -1,28 +1,18 @@
 import os
 import argparse
 from easydict import EasyDict
-from tensorboardX import SummaryWriter
-import pprint
 import time
 import datetime
 import torch
 import copy
 import linklink as link
 
-from solver.base_solver import BaseSolver
 from config import parse_config
 from utils.dist import link_dist, DistModule
-from utils.misc import makedir, create_logger, get_logger, count_params, count_flops, \
-    param_group_all, AverageMeter, accuracy, load_state_model, load_state_optimizer
-from utils.ema import EMA
+from utils.misc import accuracy
 from model import model_entry
-from optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD
-from lr_scheduler import scheduler_entry
-from data import make_imagenet_train_data, make_imagenet_val_data
-from loss_functions import LabelSmoothCELoss
+from optimizer import FusedFP16SGD, SGD
 
-
-from easydict import EasyDict
 from SpringCommonInterface import Metric, SpringCommonInterface
 from solver.cls_solver import ClsSolver
 
@@ -77,10 +67,6 @@ class ClsSolverExchange(ClsSolver):
 
     def get_batch(self, batch_type='train'):
         if batch_type == 'train':
-            #for i, (input, target) in enumerate(self.train_data['loader']):
-            #    target = target.squeeze().cuda().long()
-            #    input = input.cuda().half() if self.fp16 else input.cuda()
-            #    yield input, target
             if not self.train_data['iter']:
                 self.train_data['iter'] = iter(self.train_data['loader'])
             input, target = next(self.train_data['iter'])
@@ -130,7 +116,7 @@ class ClsSolverExchange(ClsSolver):
         # EMA
         if self.ema is not None:
             self.ema.step(self.model, curr_step=self.curr_step)
-    
+
     def get_dump_dict(self):
         state = {}
         state['config'] = self.config_copy
@@ -150,7 +136,6 @@ class ClsSolverExchange(ClsSolver):
 
     def train(self):
 
-        #for i, batch in enumerate(self.get_batch(batch_type='train')):
         for i in range(self.total_step):
 
             batch = self.get_batch()
@@ -241,7 +226,7 @@ class ClsSpringCommonInterface(SpringCommonInterface):
 
     def forward(self, batch):
         return self.solver.forward(batch)
-    
+
     def backward(self, loss):
         self.solver.backward(loss)
 
@@ -311,6 +296,7 @@ class ClsSpringCommonInterface(SpringCommonInterface):
     def logger(self):
         return self.solver.logger
 
+
 @link_dist
 def main():
     parser = argparse.ArgumentParser(description='base solver')
@@ -347,8 +333,8 @@ def main():
         sci.logger.warn('backward done')
         sci.update()
         sci.logger.warn('update done')
-        #sci.train()
-        #sci.logger.warn('train done')
+        # sci.train()
+        # sci.logger.warn('train done')
         sci.evaluate()
         sci.logger.warn('evaluate done')
         ckpt_dict = torch.load('checkpoints/ckpt_100.pth.tar', 'cpu')
