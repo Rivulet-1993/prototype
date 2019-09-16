@@ -71,7 +71,13 @@ class EMA(object):
 
     def load_state_dict(self, state):
         for k, v in state.items():
-            self.__dict__[k] = v
+            if k == 'ema_state_dict':
+                tmp_v = OrderedDict()
+                for kk, vv in v.items():
+                    tmp_v[kk] = vv.cuda()
+                self.__dict__[k] = tmp_v
+            else:
+                self.__dict__[k] = v
 
         self.logger = get_logger(__name__)
         self.logger.info('loading ema, keys={}'.format(self.__dict__.keys()))
