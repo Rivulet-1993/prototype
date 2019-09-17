@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import math
 from linklink.nn import SyncBatchNorm2d
-from prototype.utils.misc import get_logger, get_bn
+from prototype.utils.misc import get_bn
 
 BN = None
 
@@ -39,9 +39,11 @@ class InvertedResidual(nn.Module):
 
         if self.stride > 1:
             self.branch1 = nn.Sequential(
-                self.depthwise_conv(inp, inp, kernel_size=3, stride=self.stride, padding=1),
+                self.depthwise_conv(inp, inp, kernel_size=3,
+                                    stride=self.stride, padding=1),
                 BN(inp),
-                nn.Conv2d(inp, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+                nn.Conv2d(inp, branch_features, kernel_size=1,
+                          stride=1, padding=0, bias=False),
                 BN(branch_features),
                 nn.ReLU(inplace=True),
             )
@@ -51,9 +53,11 @@ class InvertedResidual(nn.Module):
                       branch_features, kernel_size=1, stride=1, padding=0, bias=False),
             BN(branch_features),
             nn.ReLU(inplace=True),
-            self.depthwise_conv(branch_features, branch_features, kernel_size=3, stride=self.stride, padding=1),
+            self.depthwise_conv(branch_features, branch_features,
+                                kernel_size=3, stride=self.stride, padding=1),
             BN(branch_features),
-            nn.Conv2d(branch_features, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.Conv2d(branch_features, branch_features,
+                      kernel_size=1, stride=1, padding=0, bias=False),
             BN(branch_features),
             nn.ReLU(inplace=True),
         )
@@ -79,12 +83,12 @@ class ShuffleNetV2(nn.Module):
         super(ShuffleNetV2, self).__init__()
 
         if len(stages_repeats) != 3:
-            raise ValueError('expected stages_repeats as list of 3 positive ints')
+            raise ValueError(
+                'expected stages_repeats as list of 3 positive ints')
         if len(stages_out_channels) != 5:
-            raise ValueError('expected stages_out_channels as list of 5 positive ints')
+            raise ValueError(
+                'expected stages_out_channels as list of 5 positive ints')
         self._stage_out_channels = stages_out_channels
-        
-        logger = get_logger(__name__)
 
         global BN
 
@@ -106,7 +110,8 @@ class ShuffleNetV2(nn.Module):
                 stage_names, stages_repeats, self._stage_out_channels[1:]):
             seq = [InvertedResidual(input_channels, output_channels, 2)]
             for i in range(repeats - 1):
-                seq.append(InvertedResidual(output_channels, output_channels, 1))
+                seq.append(InvertedResidual(
+                    output_channels, output_channels, 1))
             setattr(self, name, nn.Sequential(*seq))
             input_channels = output_channels
 
@@ -147,17 +152,21 @@ def shufflenet_v2_x0_5(**kwargs):
     model = ShuffleNetV2([4, 8, 4], [24, 48, 96, 192, 1024], **kwargs)
     return model
 
+
 def shufflenet_v2_x1_0(**kwargs):
     model = ShuffleNetV2([4, 8, 4], [24, 116, 232, 464, 1024], **kwargs)
     return model
+
 
 def shufflenet_v2_x1_5(**kwargs):
     model = ShuffleNetV2([4, 8, 4], [24, 176, 352, 704, 1024], **kwargs)
     return model
 
+
 def shufflenet_v2_x2_0(**kwargs):
     model = ShuffleNetV2([4, 8, 4], [24, 244, 488, 976, 2048], **kwargs)
     return model
+
 
 def shufflenet_v2_scale(**kwargs):
     model = ShuffleNetV2(**kwargs)

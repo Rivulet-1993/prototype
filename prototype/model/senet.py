@@ -3,11 +3,12 @@ import math
 
 import torch.nn as nn
 from linklink.nn import SyncBatchNorm2d
-from prototype.utils.misc import get_logger, get_bn
+from prototype.utils.misc import get_bn
 
 BN = None
 
 __all__ = ['se_resnext50_32x4d', 'se_resnext101_32x4d']
+
 
 class SEModule(nn.Module):
 
@@ -35,6 +36,7 @@ class Bottleneck(nn.Module):
     """
     Base class for bottlenecks that implements `forward()` method.
     """
+
     def forward(self, x):
         residual = x
 
@@ -264,7 +266,6 @@ class SENet(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
-
     def _make_layer(self, block, planes, blocks, groups, reduction, stride=1,
                     downsample_kernel_size=1, downsample_padding=0):
         downsample = None
@@ -312,6 +313,7 @@ def se_resnext50_32x4d(**kwargs):
                   dropout_p=None, inplanes=64, input_3x3=False,
                   downsample_kernel_size=1, downsample_padding=0, **kwargs)
     return model
+
 
 def se_resnext101_32x4d(**kwargs):
     model = SENet(SEResNeXtBottleneck, [3, 4, 23, 3], groups=32, reduction=16,

@@ -4,12 +4,12 @@ from .efficientnet import (  # noqa: F401
     efficientnet_b0, efficientnet_b1, efficientnet_b2, efficientnet_b3,
     efficientnet_b4, efficientnet_b5, efficientnet_b6, efficientnet_b7
 )
-from .shufflenet_v2 import (
+from .shufflenet_v2 import (  # noqa: F401
     shufflenet_v2_x0_5, shufflenet_v2_x1_0, shufflenet_v2_x1_5, shufflenet_v2_x2_0, shufflenet_v2_scale
 )
-from .senet import se_resnext50_32x4d, se_resnext101_32x4d
-from .densenet import densenet121, densenet169, densenet201, densenet161
-#from .toponet import toponet_conv, toponet_sepconv, toponet_mb 
+from .senet import se_resnext50_32x4d, se_resnext101_32x4d  # noqa: F401
+from .densenet import densenet121, densenet169, densenet201, densenet161  # noqa: F401
+# from .toponet import toponet_conv, toponet_sepconv, toponet_mb
 
 
 def model_entry(config):
