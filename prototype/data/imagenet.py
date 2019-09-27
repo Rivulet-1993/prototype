@@ -94,7 +94,9 @@ def make_imagenet_train_data(config):
                                        config.input_size,
                                        colorjitter=config.augmentation.colorjitter)
 
-        loader = link_dali.DataLoader(pipeline, config.batch_size, len(sampler), config.dali_workers)
+        loader = link_dali.DataLoader(pipeline, config.batch_size, len(sampler), 
+                                      config.dali_workers,
+                                      last_iter=config.last_iter)
 
     else:
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
