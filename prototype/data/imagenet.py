@@ -51,21 +51,21 @@ def make_imagenet_train_data(config):
 
         if config.epoch_wise_shuffle:
             sampler = DistributedEpochSampler(
-                    dataset=dataset,
-                    total_iter=config.max_iter,
-                    batch_size=config.batch_size,
-                    last_iter=config.last_iter)
+                dataset=dataset,
+                total_iter=config.max_iter,
+                batch_size=config.batch_size,
+                last_iter=config.last_iter)
         else:
             sampler = DistributedGivenIterationSampler(
-                    dataset=dataset,
-                    total_iter=config.max_iter,
-                    batch_size=config.batch_size,
-                    last_iter=config.last_iter)
+                dataset=dataset,
+                total_iter=config.max_iter,
+                batch_size=config.batch_size,
+                last_iter=config.last_iter)
 
         torch_loader = DataLoader(
-                dataset, batch_size=config.batch_size, shuffle=False,
-                num_workers=config.workers, pin_memory=config.pin_memory, sampler=sampler,
-                collate_fn=dali_default_collate)
+            dataset, batch_size=config.batch_size, shuffle=False,
+            num_workers=config.workers, pin_memory=config.pin_memory, sampler=sampler,
+            collate_fn=dali_default_collate)
 
         loader = DaliDataLoader(pipeline, dataloader=torch_loader)
 
@@ -77,16 +77,16 @@ def make_imagenet_train_data(config):
 
         if config.epoch_wise_shuffle:
             sampler = DistributedEpochSampler(
-                    dataset=dataset,
-                    total_iter=config.max_iter,
-                    batch_size=config.batch_size,
-                    last_iter=config.last_iter)
+                dataset=dataset,
+                total_iter=config.max_iter,
+                batch_size=config.batch_size,
+                last_iter=config.last_iter)
         else:
             sampler = DistributedGivenIterationSampler(
-                    dataset=dataset,
-                    total_iter=config.max_iter,
-                    batch_size=config.batch_size,
-                    last_iter=config.last_iter)
+                dataset=dataset,
+                total_iter=config.max_iter,
+                batch_size=config.batch_size,
+                last_iter=config.last_iter)
 
         pipeline = ImageNetTrainPipeV2(config.train_root,
                                        config.train_meta,
@@ -94,7 +94,7 @@ def make_imagenet_train_data(config):
                                        config.input_size,
                                        colorjitter=config.augmentation.colorjitter)
 
-        loader = link_dali.DataLoader(pipeline, config.batch_size, len(sampler), 
+        loader = link_dali.DataLoader(pipeline, config.batch_size, len(sampler),
                                       config.dali_workers,
                                       last_iter=config.last_iter)
 
@@ -121,27 +121,27 @@ def make_imagenet_train_data(config):
         aug.append(normalize)
 
         dataset = ImageNetDataset(
-                config.train_root,
-                config.train_meta,
-                transforms.Compose(aug),
-                read_from=config.read_from)
+            config.train_root,
+            config.train_meta,
+            transforms.Compose(aug),
+            read_from=config.read_from)
 
         if config.epoch_wise_shuffle:
             sampler = DistributedEpochSampler(
-                    dataset=dataset,
-                    total_iter=config.max_iter,
-                    batch_size=config.batch_size,
-                    last_iter=config.last_iter)
+                dataset=dataset,
+                total_iter=config.max_iter,
+                batch_size=config.batch_size,
+                last_iter=config.last_iter)
         else:
             sampler = DistributedGivenIterationSampler(
-                    dataset=dataset,
-                    total_iter=config.max_iter,
-                    batch_size=config.batch_size,
-                    last_iter=config.last_iter)
+                dataset=dataset,
+                total_iter=config.max_iter,
+                batch_size=config.batch_size,
+                last_iter=config.last_iter)
 
         loader = DataLoader(
-                dataset, batch_size=config.batch_size, shuffle=False,
-                num_workers=config.workers, pin_memory=True, sampler=sampler)
+            dataset, batch_size=config.batch_size, shuffle=False,
+            num_workers=config.workers, pin_memory=True, sampler=sampler)
 
     return {'loader': loader}
 
@@ -163,9 +163,9 @@ def make_imagenet_val_data(config):
         sampler = DistributedSampler(dataset, round_up=False)
 
         torch_loader = DataLoader(
-                dataset, batch_size=config.batch_size, shuffle=False,
-                num_workers=config.workers, pin_memory=config.pin_memory, sampler=sampler,
-                collate_fn=dali_default_collate)
+            dataset, batch_size=config.batch_size, shuffle=False,
+            num_workers=config.workers, pin_memory=config.pin_memory, sampler=sampler,
+            collate_fn=dali_default_collate)
 
         loader = DaliDataLoader(pipeline, dataloader=torch_loader)
 
@@ -184,27 +184,28 @@ def make_imagenet_val_data(config):
                                      config.input_size,
                                      config.test_resize)
 
-        loader = link_dali.DataLoader(pipeline, config.batch_size, len(sampler), config.dali_workers)
+        loader = link_dali.DataLoader(
+            pipeline, config.batch_size, len(sampler), config.dali_workers)
 
     else:
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                          std=[0.229, 0.224, 0.225])
 
         dataset = ImageNetDataset(
-                config.val_root,
-                config.val_meta,
-                transforms.Compose([
-                    transforms.Resize(config.test_resize),
-                    transforms.CenterCrop(config.input_size),
-                    transforms.ToTensor(),
-                    normalize,
-                ]),
-                read_from=config.read_from)
+            config.val_root,
+            config.val_meta,
+            transforms.Compose([
+                transforms.Resize(config.test_resize),
+                transforms.CenterCrop(config.input_size),
+                transforms.ToTensor(),
+                normalize,
+            ]),
+            read_from=config.read_from)
 
         sampler = DistributedSampler(dataset, round_up=False)
 
         loader = DataLoader(
-                dataset, batch_size=config.batch_size, shuffle=False,
-                num_workers=config.workers, pin_memory=config.pin_memory, sampler=sampler)
+            dataset, batch_size=config.batch_size, shuffle=False,
+            num_workers=config.workers, pin_memory=config.pin_memory, sampler=sampler)
 
     return {'loader': loader}
