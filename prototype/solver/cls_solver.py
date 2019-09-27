@@ -143,7 +143,12 @@ class ClsSolver(BaseSolver):
         self.config.data.max_iter = self.config.lr_scheduler.kwargs.max_iter
         self.config.data.last_iter = self.state['last_iter']
 
-        self.train_data = make_imagenet_train_data(self.config.data)
+        if self.config.data.max_iter != self.config.data.last_iter:
+            self.train_data = make_imagenet_train_data(self.config.data)
+        else:
+            self.logger.info(
+                f"======= recovering from the max_iter: {self.config.data.max_iter} =======")
+
         self.val_data = make_imagenet_val_data(self.config.data)
 
     def pre_train(self):
