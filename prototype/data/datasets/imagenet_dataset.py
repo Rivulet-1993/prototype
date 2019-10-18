@@ -5,11 +5,14 @@ from PIL import Image
 from .base_dataset import BaseDataset
 
 
-def pil_loader(img_bytes):
+def pil_loader(img_bytes, filepath):
     # warnings.filterwarnings("ignore", "(Possibly )?corrupt EXIF data", UserWarning)
     buff = io.BytesIO(img_bytes)
-    with Image.open(buff) as img:
-        img = img.convert('RGB')
+    try:
+        with Image.open(buff) as img:
+            img = img.convert('RGB')
+    except IOError:
+        print('Failed in loading {}'.format(filepath))
     return img
 
 
@@ -41,7 +44,7 @@ class ImageNetDataset(BaseDataset):
         if self.transform is None:
             return img_bytes, cls
 
-        img = pil_loader(img_bytes)
+        img = pil_loader(img_bytes, filepath)
         img = self.transform(img)
 
         return img, cls
