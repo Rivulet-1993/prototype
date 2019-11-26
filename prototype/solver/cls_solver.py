@@ -12,7 +12,8 @@ from .base_solver import BaseSolver
 from prototype.config import parse_config
 from prototype.utils.dist import link_dist, DistModule
 from prototype.utils.misc import makedir, create_logger, get_logger, count_params, count_flops, \
-    param_group_all, AverageMeter, accuracy, load_state_model, load_state_optimizer
+    param_group_all, AverageMeter, accuracy, load_state_model, load_state_optimizer, mixup_data, \
+    mixup_criterion
 from prototype.utils.ema import EMA
 from prototype.model import model_entry
 from prototype.optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD
@@ -63,11 +64,20 @@ class ClsSolver(BaseSolver):
         torch.backends.cudnn.benchmark = True
 
     def build_model(self):
+        if hasattr(self.config, 'lms'):
+            if self.config.lms.enable:
+                torch.cuda.set_enabled_lms(True)
+                byte_limit = self.config.lms.kwargs.limit * (1 << 30)
+                torch.cuda.set_limit_lms(byte_limit)
+                self.logger.info('Enable large model support, limit of {}G!'.format(
+                    self.config.lms.kwargs.limit))
+
         self.model = model_entry(self.config.model)
         self.model.cuda()
 
         count_params(self.model)
-        count_flops(self.model, input_shape=[1, 3, self.config.data.input_size, self.config.data.input_size])
+        count_flops(self.model, input_shape=[
+                    1, 3, self.config.data.input_size, self.config.data.input_size])
 
         # handle fp16
         if self.config.optimizer.type == 'FP16SGD' or \
@@ -84,11 +94,14 @@ class ClsSolver(BaseSolver):
             # function, then call link.fp16.init() before call model.half()
             if self.config.optimizer.get('fp16_normal_bn', False):
                 self.logger.info('using normal bn for fp16')
-                link.fp16.register_float_module(link.nn.SyncBatchNorm2d, cast_args=False)
-                link.fp16.register_float_module(torch.nn.BatchNorm2d, cast_args=False)
+                link.fp16.register_float_module(
+                    link.nn.SyncBatchNorm2d, cast_args=False)
+                link.fp16.register_float_module(
+                    torch.nn.BatchNorm2d, cast_args=False)
             if self.config.optimizer.get('fp16_normal_fc', False):
                 self.logger.info('using normal fc for fp16')
-                link.fp16.register_float_module(torch.nn.Linear, cast_args=True)
+                link.fp16.register_float_module(
+                    torch.nn.Linear, cast_args=True)
             link.fp16.init()
             self.model.half()
 
@@ -135,7 +148,7 @@ class ClsSolver(BaseSolver):
 
     def build_lr_scheduler(self):
         self.config.lr_scheduler.kwargs.optimizer = self.optimizer.optimizer if isinstance(self.optimizer, FP16SGD) or \
-                                                        isinstance(self.optimizer, FP16RMSprop) else self.optimizer
+            isinstance(self.optimizer, FP16RMSprop) else self.optimizer
         self.config.lr_scheduler.kwargs.last_iter = self.state['last_iter']
         self.lr_scheduler = scheduler_entry(self.config.lr_scheduler)
 
@@ -169,6 +182,9 @@ class ClsSolver(BaseSolver):
             self.criterion = LabelSmoothCELoss(label_smooth, num_classes)
         else:
             self.criterion = torch.nn.CrossEntropyLoss()
+        self.mixup = self.config.get('mixup', 1.0)
+        if self.mixup < 1.0:
+            self.logger.info('using mixup with alpha of: {}'.format(self.mixup))
 
     def train(self):
 
@@ -192,9 +208,19 @@ class ClsSolver(BaseSolver):
             target = target.squeeze().cuda().long()
             input = input.cuda().half() if self.fp16 else input.cuda()
 
+            # mixup
+            if self.mixup < 1.0:
+                input, target_a, target_b, lam = mixup_data(input, target, self.mixup)
+
             # forward
             logits = self.model(input)
-            loss = self.criterion(logits, target) / self.dist.world_size
+
+            # mixup
+            if self.mixup < 1.0:
+                loss = mixup_criterion(self.criterion, logits, target_a, target_b, lam)
+                loss /= self.dist.world_size
+            else:
+                loss = self.criterion(logits, target) / self.dist.world_size
 
             # measure accuracy and record loss
             prec1, prec5 = accuracy(logits, target, topk=(1, 5))
@@ -235,13 +261,18 @@ class ClsSolver(BaseSolver):
             self.meters.batch_time.update(time.time() - end)
 
             if curr_step % self.config.print_freq == 0 and self.dist.rank == 0:
-                self.tb_logger.add_scalar('loss_train', self.meters.losses.avg, curr_step)
-                self.tb_logger.add_scalar('acc1_train', self.meters.top1.avg, curr_step)
-                self.tb_logger.add_scalar('acc5_train', self.meters.top5.avg, curr_step)
+                self.tb_logger.add_scalar(
+                    'loss_train', self.meters.losses.avg, curr_step)
+                self.tb_logger.add_scalar(
+                    'acc1_train', self.meters.top1.avg, curr_step)
+                self.tb_logger.add_scalar(
+                    'acc5_train', self.meters.top5.avg, curr_step)
                 self.tb_logger.add_scalar('lr', current_lr, curr_step)
-                remain_secs = (total_step - curr_step) * self.meters.batch_time.avg
+                remain_secs = (total_step - curr_step) * \
+                    self.meters.batch_time.avg
                 remain_time = datetime.timedelta(seconds=round(remain_secs))
-                finish_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()+remain_secs))
+                finish_time = time.strftime(
+                    "%Y-%m-%d %H:%M:%S", time.localtime(time.time()+remain_secs))
                 log_msg = f'Iter: [{curr_step}/{total_step}]\t' \
                     f'Time {self.meters.batch_time.val:.3f} ({self.meters.batch_time.avg:.3f})\t' \
                     f'Data {self.meters.data_time.val:.3f} ({self.meters.data_time.avg:.3f})\t' \
@@ -260,9 +291,12 @@ class ClsSolver(BaseSolver):
                     val_loss_ema, prec1_ema, prec5_ema = self.evaluate()
                     self.ema.recover(self.model)
                     if self.dist.rank == 0:
-                        self.tb_logger.add_scalars('loss_val', {'ema': val_loss_ema}, curr_step)
-                        self.tb_logger.add_scalars('acc1_val', {'ema': prec1_ema}, curr_step)
-                        self.tb_logger.add_scalars('acc5_val', {'ema': prec5_ema}, curr_step)
+                        self.tb_logger.add_scalars(
+                            'loss_val', {'ema': val_loss_ema}, curr_step)
+                        self.tb_logger.add_scalars(
+                            'acc1_val', {'ema': prec1_ema}, curr_step)
+                        self.tb_logger.add_scalars(
+                            'acc5_val', {'ema': prec5_ema}, curr_step)
 
                 if self.dist.rank == 0:
                     self.tb_logger.add_scalar('loss_val', val_loss, curr_step)
@@ -331,7 +365,8 @@ class ClsSolver(BaseSolver):
                 logits = self.model(input)
 
                 # measure accuracy and record loss
-                loss = criterion(logits, target)  # / world_size # loss should not be scaled here, it's reduced later!
+                # / world_size # loss should not be scaled here, it's reduced later!
+                loss = criterion(logits, target)
                 prec1, prec5 = accuracy(logits.data, target, topk=(1, 5))
 
                 num = input.size(0)
@@ -382,7 +417,8 @@ def main():
     # evaluate or train
     if args.evaluate:
         if not args.recover:
-            solver.logger.warn('evaluating without recovring any solver checkpoints')
+            solver.logger.warn(
+                'evaluating without recovring any solver checkpoints')
         solver.evaluate()
     else:
         solver.train()

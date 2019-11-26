@@ -248,7 +248,7 @@ class ClsSpringCommonInterface(SpringCommonInterface):
         self.solver.train()
 
     def evaluate(self):
-        top1, top5, loss = self.solver.evaluate()
+        loss, top1, top5 = self.solver.evaluate()
         metric = ClsMetric(top1, top5, loss)
         return metric
 
@@ -298,6 +298,41 @@ class ClsSpringCommonInterface(SpringCommonInterface):
     @property
     def logger(self):
         return self.solver.logger
+
+    def to_caffe(self, save_prefix='model', input_size=None):
+        with pytorch.convert_mode():
+            pytorch.convert(self.solver.model,
+                            [(3, self.solver.config.data.input_size,
+                              self.solver.config.data.input_size)],
+                            filename=save_prefix,
+                            input_names=['data'],
+                            output_names=['out'])
+
+    def to_kestrel(self, save_to=None):
+        prefix = 'model'
+        self.to_caffe(prefix)
+
+        prototxt = '{}.prototxt'.format(prefix)
+        caffemodel = '{}.caffemodel'.format(prefix)
+        version = '1.0.0'
+        model_name = self.solver.config.model.type
+
+        kestrel_model = '{}_{}.tar'.format(model_name, version)
+        to_kestrel_yml = 'temp_to_kestrel.yml'
+        self.solver.config.pop('optimizer')
+        self.solver.config.pop('lr_scheduler')
+        with open(to_kestrel_yml, 'w') as f:
+            yaml.dump(json.loads(json.dumps(self.solver.config)), f)
+
+        cmd = 'python -m spring.nart.tools.kestrel.classifier {} {} -v {} -c {} -n {}'.format(
+            prototxt, caffemodel, version, to_kestrel_yml, model_name)
+
+        os.system(cmd)
+
+        if save_to is None:
+            save_to = self.solver.config['to_kestrel']['save_to']
+        shutil.move(kestrel_model, save_to)
+        self.solver.logger.info('save kestrel model to: {}'.format(save_to))
 
 
 @link_dist

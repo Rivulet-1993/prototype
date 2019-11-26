@@ -1,3 +1,3 @@
 [submodule "prototype/spring/SpringCommonInterface"]
 	path = prototype/spring/SpringCommonInterface
-	url = git@gitlab.bj.sensetime.com:SpringExplorer/SpringCommonInterface.git
+	url = http://gitlab.bj.sensetime.com/spring-ee/common/SpringCommonInterface.git

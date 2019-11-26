@@ -8,7 +8,7 @@ config:
                 use_sync_bn: True
                 kwargs:
                     momentum: 0.99
-                    group_size: 2
+                    group_size: 4
                     var_mode: L2
 
     dist:
@@ -49,14 +49,14 @@ config:
         use_dali: False
         use_dali_v2: True
         read_from: mc
-        batch_size: 32
+        batch_size: 16
         dali_workers: 4
         workers: 2
         pin_memory: True
         epoch_wise_shuffle: True
 
-        input_size: 260
-        test_resize: 292
+        input_size: 456
+        test_resize: 521
         augmentation:
             colorjitter: [0.2, 0.2, 0.2, 0.1]
         train_root: /mnt/lustre/share/images/train

@@ -1,4 +1,4 @@
-from torch.optim import SGD, RMSprop # noqa F401
+from torch.optim import SGD, RMSprop, Adadelta, Adagrad, Adam # noqa F401
 from .fp16_optim import FP16SGD, FP16RMSprop # noqa F401
 try:
     from linklink.optim import FusedFP16SGD

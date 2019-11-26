@@ -10,6 +10,8 @@ from .shufflenet_v2 import (  # noqa: F401
 from .senet import se_resnext50_32x4d, se_resnext101_32x4d  # noqa: F401
 from .densenet import densenet121, densenet169, densenet201, densenet161  # noqa: F401
 # from .toponet import toponet_conv, toponet_sepconv, toponet_mb
+from .hrnet import HRNet  # noqa: F401
+from .mnasnet import mnasnet  # noqa: F401
 
 
 def model_entry(config):

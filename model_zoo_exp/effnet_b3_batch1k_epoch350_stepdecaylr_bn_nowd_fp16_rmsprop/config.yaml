@@ -53,8 +53,8 @@ config:
         pin_memory: True
         epoch_wise_shuffle: True
 
-        input_size: 260
-        test_resize: 292
+        input_size: 300
+        test_resize: 342
         augmentation:
             colorjitter: [0.2, 0.2, 0.2, 0.1]
         train_root: /mnt/lustre/share/images/train
