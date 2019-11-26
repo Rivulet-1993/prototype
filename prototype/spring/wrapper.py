@@ -5,16 +5,21 @@ import time
 import datetime
 import torch
 import copy
+import yaml
+import shutil
+import json
 import linklink as link
 
 from prototype.config import parse_config
 from prototype.utils.dist import link_dist, DistModule
 from prototype.utils.misc import accuracy
 from prototype.model import model_entry
-from prototype.optimizer import FusedFP16SGD, SGD
+from prototype.optimizer import FusedFP16SGD, SGD, Adam
 from prototype.solver.cls_solver import ClsSolver
 
 from .SpringCommonInterface import Metric, SpringCommonInterface
+
+from spring.nart.tools import pytorch
 
 
 class ClsMetric(Metric):
@@ -109,7 +114,7 @@ class ClsSolverExchange(ClsSolver):
         if FusedFP16SGD is not None and isinstance(self.optimizer, FusedFP16SGD):
             self.optimizer.backward(loss)
             self.model.sync_gradients()
-        elif isinstance(self.optimizer, SGD):
+        elif isinstance(self.optimizer, SGD) or isinstance(self.optimizer, Adam):
             loss.backward()
             self.model.sync_gradients()
         else:
