@@ -32,8 +32,8 @@ config:
         type: StepDecay
         kwargs:
             base_lr: 0.001
-            warmup_lr: 0.128
-            warmup_steps: 12500
+            warmup_lr: 0.064
+            warmup_steps: 6250
             step_size: 3000
             decay: 0.97
             max_iter: 437500
@@ -49,14 +49,14 @@ config:
         use_dali: False
         use_dali_v2: True
         read_from: mc
-        batch_size: 32
+        batch_size: 8
         dali_workers: 4
         workers: 2
         pin_memory: True
         epoch_wise_shuffle: True
 
-        input_size: 224
-        test_resize: 256
+        input_size: 600
+        test_resize: 600
         augmentation:
             colorjitter: [0.2, 0.2, 0.2, 0.1]
         train_root: /mnt/lustre/share/images/train
