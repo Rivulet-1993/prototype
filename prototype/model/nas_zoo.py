@@ -696,7 +696,7 @@ def mbnas_t47_x1_00(**kwargs):
                          [9, 11, 16, 13, 4, 7]],
                         scale=1.0,
                         channel_dist=[16, 32, 64, 128, 256],
-                        alloc_space=[0, 0, 2, 0, 2],
+                        alloc_space=[0, 0, 2, 2, 2],
                         cell_plan='mb',
                         alloc_plan='NR',)
                         # **kwargs)
