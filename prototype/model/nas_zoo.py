@@ -333,11 +333,10 @@ class FBNetValCell(nn.Module):
     candidates = []
     for k in [3, 5]:
         for t in [1, 3, 6]:
-            candidates.append(partial(LinearBottleneck, k=k, t=t,
-                                      timing=False))
+            candidates.append(partial(LinearBottleneck, k=k, t=t))
             if t == 1:
                 candidates.append(partial(LinearBottleneck, k=k, t=t,
-                                          timing=False, group=2))
+                                          group=2))
 
     def __init__(self, cin, size_in, stride, cout, branch):
         super(FBNetValCell, self).__init__()
@@ -370,15 +369,14 @@ class SupValCell(nn.Module):
     candidates = []
     for k in [3, 5, 7]:
         for t in [1, 3, 6]:
-            candidates.append(partial(LinearBottleneck, k=k, t=t,
-                                      timing=False))
+            candidates.append(partial(LinearBottleneck, k=k, t=t))
     for t in [1, 2, 4]:
-        candidates.append(partial(NormalConv, k=3, t=t, timing=False))
+        candidates.append(partial(NormalConv, k=3, t=t))
     for t in [1, 2, 4]:
-        candidates.append(partial(DualConv, k=3, t=t, timing=False))
+        candidates.append(partial(DualConv, k=3, t=t))
     for k in [3, 5, 7]:
         for t in [1, 2, 4]:
-            candidates.append(partial(Rec, k=k, t=t, timing=False))
+            candidates.append(partial(Rec, k=k, t=t))
 
     def __init__(self, cin, size_in, stride, cout, branch, keep_prob=-1):
         super(SupValCell, self).__init__()
@@ -409,15 +407,14 @@ class AlignedSupValCell(nn.Module):
     candidates = []
     for k in [3, 5, 7]:
         for t in [1, 3, 6]:
-            candidates.append(partial(LinearBottleneck, k=k, t=t,
-                                      timing=False))
+            candidates.append(partial(LinearBottleneck, k=k, t=t))
     for t in [1, 2]:
-        candidates.append(partial(NormalConv, k=3, t=t, timing=False))
+        candidates.append(partial(NormalConv, k=3, t=t))
     for t in [1, 2]:
-        candidates.append(partial(DualConv, k=3, t=t, timing=False))
+        candidates.append(partial(DualConv, k=3, t=t))
     for k in [5, 7]:
         for t in [1, 2, 4]:
-            candidates.append(partial(Rec, k=k, t=t, timing=False))
+            candidates.append(partial(Rec, k=k, t=t))
 
     def __init__(self, cin, size_in, stride, cout, branch):
         super(AlignedSupValCell, self).__init__()
@@ -449,15 +446,14 @@ class MBValCell(nn.Module):
     candidates = []
     for k in [3, 5, 7]:
         for t in [1, 3, 6]:
-            candidates.append(partial(LinearBottleneck, k=k, t=t,
-                                      timing=False))
+            candidates.append(partial(LinearBottleneck, k=k, t=t))
     for t in [1, 2]:
-        candidates.append(partial(NormalConv, k=3, t=t, timing=False))
+        candidates.append(partial(NormalConv, k=3, t=t))
     for t in [1, 2]:
-        candidates.append(partial(DualConv, k=3, t=t, timing=False))
+        candidates.append(partial(DualConv, k=3, t=t))
     for k in [5, 7]:
         for t in [1, 2, 4]:
-            candidates.append(partial(Rec, k=k, t=t, timing=False))
+            candidates.append(partial(Rec, k=k, t=t))
 
     def __init__(self, cin, size_in, stride, cout, branches, keep_prob=-1):
         super(MBValCell, self).__init__()
@@ -493,14 +489,13 @@ class MACMBValCell(nn.Module):
             if k == 3:
                 for d in [1, 2, 3]:
                     candidates.append(partial(LinearBottleneck, k=k, t=t,
-                                              dilation=d, timing=False))
+                                              dilation=d))
             else:
-                candidates.append(partial(LinearBottleneck, k=k, t=t,
-                                          timing=False))
+                candidates.append(partial(LinearBottleneck, k=k, t=t))
 
     for k in [5, 7]:
         for t in [1, 2, 4]:
-            candidates.append(partial(Rec, k=k, t=t, timing=False))
+            candidates.append(partial(Rec, k=k, t=t))
 
     def __init__(self, cin, size_in, stride, cout, branches, keep_prob=-1):
         super(MACMBValCell, self).__init__()
@@ -533,8 +528,7 @@ class MACMBLiteValCell(nn.Module):
 
     for k in [3, 5, 7, 9, 11]:
         for t in [1, 2, 4, 8]:
-            candidates.append(partial(LinearBottleneck, k=k, t=t,
-                                      timing=False))
+            candidates.append(partial(LinearBottleneck, k=k, t=t))
 
     def __init__(self, cin, size_in, stride, cout, branches):
         super(MACMBLiteValCell, self).__init__()
