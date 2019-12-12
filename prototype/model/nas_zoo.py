@@ -13,6 +13,8 @@ import numpy as np
 import pickle
 
 from functools import partial
+from prototype.utils.misc import get_bn
+
 from linklink.nn import SyncBatchNorm2d, syncbnVarMode_t
 
 BN = None
@@ -518,19 +520,10 @@ class MACMBLiteValCell(nn.Module):
 
 
 class ValNet(nn.Module):
-    def __init__(self, scale, channel_dist, num_classes, input_size, Cell, cell_seq, use_aux, bn_group=None,
-                 bn_sync_stats=True, keep_prob=-1):
+    def __init__(self, scale, channel_dist, num_classes, input_size, Cell, cell_seq, use_aux, keep_prob=-1, bn=None):
         super(ValNet, self).__init__()
         global BN, bypass_bn_weight_list
-
-        def BNFunc(*args, **kwargs):
-            return SyncBatchNorm2d(*args, **kwargs,
-                                   group=None,
-                                   sync_stats=bn_sync_stats,
-                                   var_mode=syncbnVarMode_t.L2)
-
-        BN = BNFunc
-        # BN = nn.BatchNorm2d
+        BN = get_bn(bn)
 
         self.use_aux = use_aux
 
@@ -623,7 +616,7 @@ class ValNet(nn.Module):
 
 class ValImageNet(ValNet):
     def __init__(self, alloc_code, scale=1.0, channel_dist=(16, 32, 64, 128, 256), num_classes=1000, input_size=224,
-                 alloc_space=(1, 4, 4, 8, 4), cell_plan='super', alloc_plan='NR', use_aux=False, bn_group=1):
+                 alloc_space=(1, 4, 4, 8, 4), cell_plan='super', alloc_plan='NR', use_aux=False, bn=None):
         cell_seq = {'NR': lambda x: "N" * x[0] + "R" +
                                     "N" * x[1] + "R" +
                                     "N" * x[2] + "R" +
@@ -643,8 +636,7 @@ class ValImageNet(ValNet):
                 'macmb': MACMBValCell,
                 'maclitemb': MACMBLiteValCell}[cell_plan]
 
-        super(ValImageNet, self).__init__(scale, channel_dist, num_classes, input_size, cell, cell_seq, use_aux,
-                                          bn_group=bn_group)
+        super(ValImageNet, self).__init__(scale, channel_dist, num_classes, input_size, cell, cell_seq, use_aux, bn=bn)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -686,8 +678,8 @@ def mbnas_t29_x0_84(**kwargs):
                         channel_dist=[16, 32, 64, 128, 256],
                         alloc_space=[0, 0, 2, 0, 2],
                         cell_plan='mb',
-                        alloc_plan='NR',)
-                        # **kwargs)
+                        alloc_plan='NR',
+                        **kwargs)
     return model
 
 
@@ -698,6 +690,6 @@ def mbnas_t47_x1_00(**kwargs):
                         channel_dist=[16, 32, 64, 128, 256],
                         alloc_space=[0, 0, 2, 2, 2],
                         cell_plan='mb',
-                        alloc_plan='NR',)
-                        # **kwargs)
+                        alloc_plan='NR',
+                        **kwargs)
     return model

@@ -5,8 +5,11 @@ config:
         type: mbnas_t29_x0_84
         kwargs:
             bn:
-                use_sync_bn: False
-                kwargs: {}
+                use_sync_bn: True
+                kwargs:
+                    group_size: 1
+                    var_mode: L2
+                    sync_stats: True
 
     dist:
         sync: False

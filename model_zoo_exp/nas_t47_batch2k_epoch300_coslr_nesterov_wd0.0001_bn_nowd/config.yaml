@@ -5,8 +5,11 @@ config:
         type: mbnas_t47_x1_00
         kwargs:
             bn:
-                use_sync_bn: False
-                kwargs: {}
+                use_sync_bn: True
+                kwargs:
+                    group_size: 1
+                    var_mode: L2
+                    sync_stats: True
 
     dist:
         sync: False
