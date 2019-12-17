@@ -12,7 +12,7 @@ import linklink as link
 
 from prototype.config import parse_config
 from prototype.utils.dist import link_dist, DistModule
-from prototype.utils.misc import accuracy
+from prototype.utils.misc import accuracy, load_state_model, count_params, count_flops
 from prototype.model import model_entry
 from prototype.optimizer import FusedFP16SGD, SGD, Adam
 from prototype.solver.cls_solver import ClsSolver
@@ -50,21 +50,24 @@ class ClsMetric(Metric):
         return self.top1 <= other.top1
 
 
-class ClsSolverExchange(ClsSolver):
+class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
 
-    def __init__(self, config=None, work_dir=None, recover_dict=None):
+    def __init__(self, config=None, work_dir=None, metric_dict=None, ckpt_dict=None):
         self.work_dir = work_dir
+        self.metric_dict = metric_dict
         self.config_file = os.path.join(work_dir, 'config.yaml')
         self.recover = ''  # set recover to ''
         self.config = copy.deepcopy(EasyDict(config))
         self.config_copy = copy.deepcopy(self.config)
         self.setup_env()
-        # set recover with recover_dict here
-        if recover_dict:
-            self.state = recover_dict
-            self.logger.info(f"======= recovering from recover_dict, keys={list(self.state.keys())}... =======")
+        # set recover with ckpt_dict here
+        if ckpt_dict:
+            self.state = ckpt_dict
+            self.logger.info(f"======= recovering from ckpt_dict, keys={list(self.state.keys())}... =======")
 
         self.build_model()
+        if 'model' in self.state:
+            load_state_model(self.model, self.state['model'])
         self.build_optimizer()
         self.build_lr_scheduler()
         self.build_data()
@@ -74,6 +77,52 @@ class ClsSolverExchange(ClsSolver):
         self.train_data['iter'] = None
         self.val_data['iter'] = None
         self.end_time = time.time()
+
+    def build_model(self):
+        '''overwrite build_model function in ClsSolver for interface definition of not loading weights
+        '''
+        if hasattr(self.config, 'lms'):
+            if self.config.lms.enable:
+                torch.cuda.set_enabled_lms(True)
+                byte_limit = self.config.lms.kwargs.limit * (1 << 30)
+                torch.cuda.set_limit_lms(byte_limit)
+                self.logger.info('Enable large model support, limit of {}G!'.format(
+                    self.config.lms.kwargs.limit))
+
+        self.model = model_entry(self.config.model)
+        self.model.cuda()
+
+        count_params(self.model)
+        count_flops(self.model, input_shape=[
+                    1, 3, self.config.data.input_size, self.config.data.input_size])
+
+        # handle fp16
+        if self.config.optimizer.type == 'FP16SGD' or \
+           self.config.optimizer.type == 'FusedFP16SGD' or \
+           self.config.optimizer.type == 'FP16RMSprop':
+            self.fp16 = True
+        else:
+            self.fp16 = False
+
+        if self.fp16:
+            # if you have modules that must use fp32 parameters, and need fp32 input
+            # try use link.fp16.register_float_module(your_module)
+            # if you only need fp32 parameters set cast_args=False when call this
+            # function, then call link.fp16.init() before call model.half()
+            if self.config.optimizer.get('fp16_normal_bn', False):
+                self.logger.info('using normal bn for fp16')
+                link.fp16.register_float_module(
+                    link.nn.SyncBatchNorm2d, cast_args=False)
+                link.fp16.register_float_module(
+                    torch.nn.BatchNorm2d, cast_args=False)
+            if self.config.optimizer.get('fp16_normal_fc', False):
+                self.logger.info('using normal fc for fp16')
+                link.fp16.register_float_module(
+                    torch.nn.Linear, cast_args=True)
+            link.fp16.init()
+            self.model.half()
+
+        self.model = DistModule(self.model, self.config.dist.sync)
 
     def get_batch(self, batch_type='train'):
         if batch_type == 'train':
@@ -127,6 +176,12 @@ class ClsSolverExchange(ClsSolver):
         if self.ema is not None:
             self.ema.step(self.model, curr_step=self.curr_step)
 
+        # set metric_dict
+        if self.metric_dict is not None and 'eta' in self.metric_dict:
+            self.metric_dict['eta'].set(self.get_eta())
+        if self.metric_dict is not None and 'progress' in self.metric_dict:
+            self.metric_dict['progress'].set(self.get_progress())
+
     def get_dump_dict(self):
         state = {}
         state['config'] = self.config_copy
@@ -167,7 +222,7 @@ class ClsSolverExchange(ClsSolver):
                 self.tb_logger.add_scalar('lr', current_lr, curr_step)
                 remain_secs = (self.total_step - curr_step) * self.meters.batch_time.avg
                 remain_time = datetime.timedelta(seconds=round(remain_secs))
-                finish_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()+remain_secs))
+                finish_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time() + remain_secs))
                 log_msg = f'Iter: [{curr_step}/{self.total_step}]\t' \
                     f'Time {self.meters.batch_time.val:.3f} ({self.meters.batch_time.avg:.3f})\t' \
                     f'Data {self.meters.data_time.val:.3f} ({self.meters.data_time.avg:.3f})\t' \
@@ -180,10 +235,10 @@ class ClsSolverExchange(ClsSolver):
                 self.logger.info(log_msg)
 
             if curr_step > 0 and curr_step % self.config.val_freq == 0:
-                val_loss, prec1, prec5 = self.evaluate()
+                val_loss, prec1, prec5 = super().evaluate()
                 if self.ema is not None:
                     self.ema.load_ema(self.model)
-                    val_loss_ema, prec1_ema, prec5_ema = self.evaluate()
+                    val_loss_ema, prec1_ema, prec5_ema = super().evaluate()
                     self.ema.recover(self.model)
                     if self.dist.rank == 0:
                         self.tb_logger.add_scalars('loss_val', {'ema': val_loss_ema}, curr_step)
@@ -206,54 +261,24 @@ class ClsSolverExchange(ClsSolver):
 
             self.end_time = time.time()
 
-
-class ClsSpringCommonInterface(SpringCommonInterface):
-
-    def __init__(self, config=None, work_dir=None, metric_dict=None, ckpt_dict=None):
-        self.solver = ClsSolverExchange(config=config, work_dir=work_dir, recover_dict=ckpt_dict)
-        self.metric_dict = metric_dict
-
     def get_model(self):
-        return self.solver.model
+        return self.model
 
     def get_optimizer(self):
-        return self.solver.optimizer
+        return self.optimizer
 
     def get_scheduler(self):
-        return self.solver.lr_scheduler
+        return self.lr_scheduler
 
     def get_dummy_input(self):
-        input = torch.zeros(1, 3, self.solver.config.data.input_size, self.solver.config.data.input_size)
-        return input.cuda().half() if self.solver.fp16 else input.cuda()
-
-    def get_dump_dict(self):
-        return self.solver.get_dump_dict()
-
-    def get_batch(self, batch_type='train'):
-        return self.solver.get_batch(batch_type=batch_type)
+        input = torch.zeros(1, 3, self.config.data.input_size, self.config.data.input_size)
+        return input.cuda().half() if self.fp16 else input.cuda()
 
     def get_total_iter(self):
-        return self.solver.config.data.max_iter
-
-    def forward(self, batch):
-        return self.solver.forward(batch)
-
-    def backward(self, loss):
-        self.solver.backward(loss)
-
-    def update(self):
-        self.solver.update()
-        # set metric_dict
-        if self.metric_dict is not None and 'eta' in self.metric_dict:
-            self.metric_dict['eta'].set(self.solver.get_eta())
-        if self.metric_dict is not None and 'progress' in self.metric_dict:
-            self.metric_dict['progress'].set(self.solver.get_progress())
-
-    def train(self):
-        self.solver.train()
+        return self.config.data.max_iter
 
     def evaluate(self):
-        loss, top1, top5 = self.solver.evaluate()
+        loss, top1, top5 = super().evaluate()
         metric = ClsMetric(top1, top5, loss)
         return metric
 
@@ -297,18 +322,11 @@ class ClsSpringCommonInterface(SpringCommonInterface):
         model = DistModule(model, config.dist.sync)
         return model
 
-    def build_model(self):
-        self.solver.build_model()
-
-    @property
-    def logger(self):
-        return self.solver.logger
-
     def to_caffe(self, save_prefix='model', input_size=None):
         with pytorch.convert_mode():
-            pytorch.convert(self.solver.model,
-                            [(3, self.solver.config.data.input_size,
-                              self.solver.config.data.input_size)],
+            pytorch.convert(self.model,
+                            [(3, self.config.data.input_size,
+                              self.config.data.input_size)],
                             filename=save_prefix,
                             input_names=['data'],
                             output_names=['out'])
@@ -320,14 +338,14 @@ class ClsSpringCommonInterface(SpringCommonInterface):
         prototxt = '{}.prototxt'.format(prefix)
         caffemodel = '{}.caffemodel'.format(prefix)
         version = '1.0.0'
-        model_name = self.solver.config.model.type
+        model_name = self.config.model.type
 
         kestrel_model = '{}_{}.tar'.format(model_name, version)
         to_kestrel_yml = 'temp_to_kestrel.yml'
-        self.solver.config.pop('optimizer')
-        self.solver.config.pop('lr_scheduler')
+        self.config.pop('optimizer')
+        self.config.pop('lr_scheduler')
         with open(to_kestrel_yml, 'w') as f:
-            yaml.dump(json.loads(json.dumps(self.solver.config)), f)
+            yaml.dump(json.loads(json.dumps(self.config)), f)
 
         cmd = 'python -m spring.nart.tools.kestrel.classifier {} {} -v {} -c {} -n {}'.format(
             prototxt, caffemodel, version, to_kestrel_yml, model_name)
@@ -335,9 +353,9 @@ class ClsSpringCommonInterface(SpringCommonInterface):
         os.system(cmd)
 
         if save_to is None:
-            save_to = self.solver.config['to_kestrel']['save_to']
+            save_to = self.config['to_kestrel']['save_to']
         shutil.move(kestrel_model, save_to)
-        self.solver.logger.info('save kestrel model to: {}'.format(save_to))
+        self.logger.info('save kestrel model to: {}'.format(save_to))
 
 
 @link_dist
@@ -392,7 +410,7 @@ def main():
         return
 
     # build or recover solver
-    solver = ClsSolverExchange(config=config, work_dir=work_dir, recover=args.recover)
+    solver = ClsSpringCommonInterface(config=config, work_dir=work_dir, recover=args.recover)
 
     # evaluate or train
     if args.evaluate:
