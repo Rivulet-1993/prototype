@@ -75,12 +75,11 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
         self.curr_step = self.state['last_iter']
         if self.curr_step < self.config.data.max_iter:
             self.total_step = len(self.train_data['loader'])
+            self.train_data['iter'] = None
         else:
             self.logger.info(
                 f"======= recovering from the max_iter: {self.config.data.max_iter} =======")
-            assert self.curr_step < self.config.data.max_iter
 
-        self.train_data['iter'] = None
         self.val_data['iter'] = None
         self.end_time = time.time()
 
@@ -424,7 +423,10 @@ def main():
             solver.logger.warn('evaluating without recovring any solver checkpoints')
         solver.evaluate()
     else:
-        solver.train()
+        if solver.config.data.last_iter < solver.config.data.max_iter:
+            solver.train()
+        else:
+            solver.logger.info('Training has been completed to max_iter!')
 
 
 if __name__ == '__main__':

@@ -156,7 +156,7 @@ class ClsSolver(BaseSolver):
         self.config.data.max_iter = self.config.lr_scheduler.kwargs.max_iter
         self.config.data.last_iter = self.state['last_iter']
 
-        if self.config.data.max_iter != self.config.data.last_iter:
+        if self.config.data.last_iter < self.config.data.max_iter:
             self.train_data = make_imagenet_train_data(self.config.data)
         else:
             self.logger.info(
@@ -417,11 +417,13 @@ def main():
     # evaluate or train
     if args.evaluate:
         if not args.recover:
-            solver.logger.warn(
-                'evaluating without recovring any solver checkpoints')
+            solver.logger.warn('evaluating without recovring any solver checkpoints')
         solver.evaluate()
     else:
-        solver.train()
+        if solver.config.data.last_iter < solver.config.data.max_iter:
+            solver.train()
+        else:
+            solver.logger.info('Training has been completed to max_iter!')
 
 
 if __name__ == '__main__':
