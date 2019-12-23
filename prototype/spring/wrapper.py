@@ -52,11 +52,11 @@ class ClsMetric(Metric):
 
 class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
 
-    def __init__(self, config=None, work_dir=None, metric_dict=None, ckpt_dict=None):
+    def __init__(self, config=None, work_dir=None, metric_dict=None, ckpt_dict=None, recover=''):
         self.work_dir = work_dir
         self.metric_dict = metric_dict
         self.config_file = os.path.join(work_dir, 'config.yaml')
-        self.recover = ''  # set recover to ''
+        self.recover = recover
         self.config = copy.deepcopy(EasyDict(config))
         self.config_copy = copy.deepcopy(self.config)
         self.setup_env()
@@ -73,7 +73,13 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
         self.build_data()
         self.pre_train()
         self.curr_step = self.state['last_iter']
-        self.total_step = len(self.train_data['loader'])
+        if self.curr_step < self.config.data.max_iter:
+            self.total_step = len(self.train_data['loader'])
+        else:
+            self.logger.info(
+                f"======= recovering from the max_iter: {self.config.data.max_iter} =======")
+            assert self.curr_step < self.config.data.max_iter
+
         self.train_data['iter'] = None
         self.val_data['iter'] = None
         self.end_time = time.time()
