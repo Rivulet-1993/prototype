@@ -77,6 +77,7 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
             self.total_step = len(self.train_data['loader'])
             self.train_data['iter'] = None
         else:
+            self.total_step = self.config.data.max_iter 
             self.logger.info(
                 f"======= recovering from the max_iter: {self.config.data.max_iter} =======")
 
