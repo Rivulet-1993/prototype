@@ -52,11 +52,11 @@ class ClsMetric(Metric):
 
 class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
 
-    def __init__(self, config=None, work_dir=None, metric_dict=None, ckpt_dict=None):
+    def __init__(self, config=None, work_dir=None, metric_dict=None, ckpt_dict=None, recover=''):
         self.work_dir = work_dir
         self.metric_dict = metric_dict
         self.config_file = os.path.join(work_dir, 'config.yaml')
-        self.recover = ''  # set recover to ''
+        self.recover = recover
         self.config = copy.deepcopy(EasyDict(config))
         self.config_copy = copy.deepcopy(self.config)
         self.setup_env()
@@ -73,8 +73,14 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
         self.build_data()
         self.pre_train()
         self.curr_step = self.state['last_iter']
-        self.total_step = len(self.train_data['loader'])
-        self.train_data['iter'] = None
+        if self.curr_step < self.config.data.max_iter:
+            self.total_step = len(self.train_data['loader'])
+            self.train_data['iter'] = None
+        else:
+            self.total_step = self.config.data.max_iter
+            self.logger.info(
+                f"======= recovering from the max_iter: {self.config.data.max_iter} =======")
+
         self.val_data['iter'] = None
         self.end_time = time.time()
 
@@ -418,7 +424,10 @@ def main():
             solver.logger.warn('evaluating without recovring any solver checkpoints')
         solver.evaluate()
     else:
-        solver.train()
+        if solver.config.data.last_iter < solver.config.data.max_iter:
+            solver.train()
+        else:
+            solver.logger.info('Training has been completed to max_iter!')
 
 
 if __name__ == '__main__':
