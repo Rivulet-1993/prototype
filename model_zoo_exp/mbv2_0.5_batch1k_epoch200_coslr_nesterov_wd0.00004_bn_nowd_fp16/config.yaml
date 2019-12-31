@@ -4,7 +4,7 @@ config:
     model:
         type: mobilenet_v2
         kwargs:
-            scale: 2.0
+            scale: 0.5
             bn:
                 use_sync_bn: False
                 kwargs: {}
@@ -13,7 +13,7 @@ config:
         sync: False
 
     optimizer:
-        type: SGD
+        type: FusedFP16SGD
         kwargs:
             nesterov: True
             momentum: 0.9
@@ -23,6 +23,7 @@ config:
                 weight_decay: 0.0
             bn_w:
                 weight_decay: 0.0
+        fp16_normal_bn: True
 
     lr_scheduler:
         type: Cosine
@@ -34,9 +35,13 @@ config:
             max_iter: 250000
 
     label_smooth: 0.1
+
+    # mixup: 0.2
     ema:
         enable: False
-
+        kwargs:
+            decay: 0.999
+    
     data:
         use_dali: False
         use_dali_v2: True

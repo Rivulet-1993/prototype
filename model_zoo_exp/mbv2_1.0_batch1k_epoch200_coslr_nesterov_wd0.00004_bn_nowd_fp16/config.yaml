@@ -4,8 +4,7 @@ config:
     model:
         type: mobilenet_v2
         kwargs:
-            scale: 2.0
-            n: [2, 2, 4, 6, 8, 6, 6, 2]
+            scale: 1.0
             bn:
                 use_sync_bn: False
                 kwargs: {}
@@ -36,9 +35,13 @@ config:
             max_iter: 250000
 
     label_smooth: 0.1
+
+    # mixup: 0.2
     ema:
         enable: False
-
+        kwargs:
+            decay: 0.999
+    
     data:
         use_dali: False
         use_dali_v2: True

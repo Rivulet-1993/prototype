@@ -4,7 +4,7 @@ config:
     model:
         type: mobilenet_v2
         kwargs:
-            scale: 4.0
+            scale: 1.0
             bn:
                 use_sync_bn: False
                 kwargs: {}
@@ -38,7 +38,7 @@ config:
 
     # mixup: 0.2
     ema:
-        enable: False
+        enable: True
         kwargs:
             decay: 0.999
     
