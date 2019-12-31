@@ -4,7 +4,7 @@ config:
     model:
         type: mobilenet_v2
         kwargs:
-            scale: 1.4
+            scale: 1.0
             bn:
                 use_sync_bn: False
                 kwargs: {}
@@ -32,7 +32,7 @@ config:
             warmup_lr: 0.4
             warmup_steps: 2500
             min_lr: 0.0
-            max_iter: 312500
+            max_iter: 250000
 
     label_smooth: 0.1
 
