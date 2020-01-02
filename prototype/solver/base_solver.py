@@ -51,10 +51,7 @@ def main():
             solver.ema.load_ema(solver.model)
             solver.evaluate()
     else:
-        if solver.config.data.last_iter < solver.config.data.max_iter:
-            solver.train()
-        else:
-            solver.logger.info('Training has been completed to max_iter!')
+        solver.train()
 
 
 if __name__ == '__main__':
