@@ -47,8 +47,14 @@ def main():
         if not args.recover:
             solver.logger.warn('evaluating without recovring any solver checkpoints')
         solver.evaluate()
+        if solver.ema is not None:
+            solver.ema.load_ema(solver.model)
+            solver.evaluate()
     else:
-        solver.train()
+        if solver.config.data.last_iter < solver.config.data.max_iter:
+            solver.train()
+        else:
+            solver.logger.info('Training has been completed to max_iter!')
 
 
 if __name__ == '__main__':
