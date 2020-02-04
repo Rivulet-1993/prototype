@@ -17,6 +17,7 @@ from .resnet_official import (  # noqa: F401
     resnet18_official, resnet34_official, resnet50_official, resnet101_official, resnet152_official,
     resnext50_32x4d, resnext101_32x8d, wide_resnet50_2, wide_resnet101_2
 )
+from .mobilenet_v3 import mobilenet_v3  # noqa: F401
 
 
 def model_entry(config):
