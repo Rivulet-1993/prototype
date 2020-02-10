@@ -13,7 +13,7 @@ from prototype.config import parse_config
 from prototype.utils.dist import link_dist, DistModule
 from prototype.utils.misc import makedir, create_logger, get_logger, count_params, count_flops, \
     param_group_all, AverageMeter, accuracy, load_state_model, load_state_optimizer, mixup_data, \
-    mixup_criterion
+    mixup_criterion, detailed_metrics
 from prototype.utils.ema import EMA
 from prototype.model import model_entry
 from prototype.optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD
@@ -60,6 +60,8 @@ class ClsSolver(BaseSolver):
         else:
             self.state = {}
             self.state['last_iter'] = 0
+        # extra metrics
+        self.detailed_metrics = self.config.get('detailed_metrics', False)
         # others
         torch.backends.cudnn.benchmark = True
 
@@ -184,7 +186,8 @@ class ClsSolver(BaseSolver):
             self.criterion = torch.nn.CrossEntropyLoss()
         self.mixup = self.config.get('mixup', 1.0)
         if self.mixup < 1.0:
-            self.logger.info('using mixup with alpha of: {}'.format(self.mixup))
+            self.logger.info(
+                'using mixup with alpha of: {}'.format(self.mixup))
 
     def train(self):
 
@@ -210,14 +213,16 @@ class ClsSolver(BaseSolver):
 
             # mixup
             if self.mixup < 1.0:
-                input, target_a, target_b, lam = mixup_data(input, target, self.mixup)
+                input, target_a, target_b, lam = mixup_data(
+                    input, target, self.mixup)
 
             # forward
             logits = self.model(input)
 
             # mixup
             if self.mixup < 1.0:
-                loss = mixup_criterion(self.criterion, logits, target_a, target_b, lam)
+                loss = mixup_criterion(
+                    self.criterion, logits, target_a, target_b, lam)
                 loss /= self.dist.world_size
             else:
                 loss = self.criterion(logits, target) / self.dist.world_size
@@ -325,6 +330,10 @@ class ClsSolver(BaseSolver):
         top1 = AverageMeter(0)
         top5 = AverageMeter(0)
 
+        if self.detailed_metrics:
+            pred_list = []
+            label_list = []
+
         # switch to evaluate mode
         # if fusion_list is not None:
         #     model_list = []
@@ -369,6 +378,17 @@ class ClsSolver(BaseSolver):
                 loss = criterion(logits, target)
                 prec1, prec5 = accuracy(logits.data, target, topk=(1, 5))
 
+                if self.detailed_metrics:
+                    _, pred = logits.data.topk(k=1, dim=1)
+                    pred = pred.view(-1)
+                    # gather results
+                    gather_buffer = torch.zeros(
+                        pred.size(0) * self.dist.world_size, device=pred.device, dtype=pred.dtype)
+                    link.allgather(gather_buffer, pred)
+                    pred_list.extend(gather_buffer.cpu().numpy())
+                    link.allgather(gather_buffer, target)
+                    label_list.extend(gather_buffer.cpu().numpy())
+
                 num = input.size(0)
                 losses.update(loss.item(), num)
                 top1.update(prec1.item(), num)
@@ -397,6 +417,12 @@ class ClsSolver(BaseSolver):
         self.logger.info(f' * Prec@1 {final_top1:.3f}\tPrec@5 {final_top5:.3f}\t\
             Loss {final_loss:.3f}\ttotal_num={total_num.item()}')
 
+        if self.detailed_metrics:
+            _, _, _, precision_avg, recall_avg, f1_avg = detailed_metrics(
+                pred_list, label_list)
+            self.logger.info(f' * Average Precision {precision_avg*100.:.3f}\tAverage Recall {recall_avg*100.:.3f}\t\
+                Average F1-score {f1_avg*100.:.3f}')
+
         self.model.train()
 
         return final_loss, final_top1, final_top5
@@ -417,7 +443,8 @@ def main():
     # evaluate or train
     if args.evaluate:
         if not args.recover:
-            solver.logger.warn('evaluating without recovring any solver checkpoints')
+            solver.logger.warn(
+                'evaluating without recovring any solver checkpoints')
         solver.evaluate()
         if solver.ema is not None:
             solver.ema.load_ema(solver.model)
