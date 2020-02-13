@@ -4,6 +4,10 @@ import torch
 import linklink as link
 from collections import defaultdict
 import numpy as np
+try:
+    from sklearn.metrics import precision_score, recall_score, f1_score
+except ImportError:
+    print('Import metrics failed!')
 
 from .dist import simple_group_split
 
@@ -14,6 +18,7 @@ _logger_names = []
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self, length=0):
         self.length = length
         self.reset()
@@ -63,7 +68,8 @@ def create_logger(log_file, level=logging.INFO):
     global _logger, _logger_fh
     if _logger is None:
         _logger = logging.getLogger()
-        formatter = logging.Formatter('[%(asctime)s][%(filename)15s][line:%(lineno)4d][%(levelname)8s] %(message)s')
+        formatter = logging.Formatter(
+            '[%(asctime)s][%(filename)15s][line:%(lineno)4d][%(levelname)8s] %(message)s')
         fh = logging.FileHandler(log_file)
         fh.setFormatter(formatter)
         sh = logging.StreamHandler()
@@ -101,11 +107,13 @@ def get_bn(config):
         else:
             world_size, rank = link.get_world_size(), link.get_rank()
             assert world_size % group_size == 0
-            bn_group = simple_group_split(world_size, rank, world_size // group_size)
+            bn_group = simple_group_split(
+                world_size, rank, world_size // group_size)
 
         del config.kwargs['group_size']
         config.kwargs.group = bn_group
-        config.kwargs.var_mode = (link.syncbnVarMode_t.L1 if var_mode == 'L1' else link.syncbnVarMode_t.L2)
+        config.kwargs.var_mode = (
+            link.syncbnVarMode_t.L1 if var_mode == 'L1' else link.syncbnVarMode_t.L2)
 
         def BNFunc(*args, **kwargs):
             return link.nn.SyncBatchNorm2d(*args, **kwargs, **config.kwargs)
@@ -149,7 +157,8 @@ def count_flops(model, input_shape):
     def make_conv2d_hook(name):
 
         def conv2d_hook(m, input):
-            n, _, h, w = input[0].size(0), input[0].size(1), input[0].size(2), input[0].size(3)
+            n, _, h, w = input[0].size(0), input[0].size(
+                1), input[0].size(2), input[0].size(3)
             flops = n * h * w * m.in_channels * m.out_channels * m.kernel_size[0] * m.kernel_size[1] \
                 / m.stride[1] / m.stride[1] / m.groups
             flops_dict[name] = int(flops)
@@ -272,7 +281,8 @@ def param_group_all(model, config):
                 logger.info('   {}: {}'.format(k, v))
 
     for ptype, pconf in config.items():
-        logger.info('names for {}({}): {}'.format(ptype, len(names[ptype]), names[ptype]))
+        logger.info('names for {}({}): {}'.format(
+            ptype, len(names[ptype]), names[ptype]))
 
     return param_groups, type2num
 
@@ -291,6 +301,16 @@ def accuracy(output, target, topk=(1,)):
         correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
+
+
+def detailed_metrics(output, target):
+    precision_class = precision_score(target, output, average=None)
+    recall_class = recall_score(target, output, average=None)
+    f1_class = f1_score(target, output, average=None)
+    precision_avg = precision_score(target, output, average='micro')
+    recall_avg = recall_score(target, output, average='micro')
+    f1_avg = f1_score(target, output, average='micro')
+    return precision_class, recall_class, f1_class, precision_avg, recall_avg, f1_avg
 
 
 def load_state_model(model, state):
