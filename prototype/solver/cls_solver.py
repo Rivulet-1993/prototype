@@ -418,10 +418,13 @@ class ClsSolver(BaseSolver):
             Loss {final_loss:.3f}\ttotal_num={total_num.item()}')
 
         if self.detailed_metrics:
-            _, _, _, precision_avg, recall_avg, f1_avg = detailed_metrics(
+            class_precision, class_recall, class_f1, precision_avg, recall_avg, f1_avg = detailed_metrics(
                 pred_list, label_list)
             self.logger.info(f' * Average Precision {precision_avg*100.:.3f}\tAverage Recall {recall_avg*100.:.3f}\t\
                 Average F1-score {f1_avg*100.:.3f}')
+            for idx, (_precision, _recall, _f1) in enumerate(zip(class_precision, class_recall, class_f1)):
+                self.logger.info(f' * Class-{idx}: Precision {_precision*100.:.3f}, Recall {_recall*100.:.3f}, \
+                    F1-score {_f1*100.:.3f}')
 
         self.model.train()
 
