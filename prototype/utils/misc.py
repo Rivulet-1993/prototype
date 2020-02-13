@@ -4,7 +4,10 @@ import torch
 import linklink as link
 from collections import defaultdict
 import numpy as np
-from sklearn.metrics import precision_score, recall_score, f1_score
+try:
+    from sklearn.metrics import precision_score, recall_score, f1_score
+except ImportError:
+    print('Import metrics failed!')
 
 from .dist import simple_group_split
 

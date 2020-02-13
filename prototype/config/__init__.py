@@ -6,7 +6,7 @@ from .imagenet import imagenet  # noqa: F401
 def parse_config(config_file):
 
     with open(config_file) as f:
-        config = yaml.load(f)
+        config = yaml.load(f, Loader=yaml.FullLoader)
 
     config = EasyDict(config)
 
