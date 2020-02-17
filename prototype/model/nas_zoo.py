@@ -416,7 +416,7 @@ class AlignedSupValCell(nn.Module):
         for t in [1, 2, 4]:
             candidates.append(partial(Rec, k=k, t=t))
 
-    def __init__(self, cin, size_in, stride, cout, branch):
+    def __init__(self, cin, size_in, stride, cout, branch, keep_prob=-1):
         super(AlignedSupValCell, self).__init__()
         self.stride = stride
         self.cin = cin
@@ -600,7 +600,7 @@ class ValNet(nn.Module):
 
                 self.aux_idx = cell_idx + 1
             else:
-                raise NotImplementedError(f'unimplemented cell type: {c}')
+                raise NotImplementedError('unimplemented cell type: {}'.format(c))
             curr_drop_path_keep_prob = \
                 self.calculate_curr_drop_path_keep_prob(cell_idx, keep_prob)
 
@@ -746,6 +746,66 @@ def mbnas_t47_x1_00(**kwargs):
                         channel_dist=[16, 32, 64, 128, 256],
                         alloc_space=[0, 0, 2, 2, 2],
                         cell_plan='mb',
+                        alloc_plan='NR',
+                        **kwargs)
+    return model
+
+
+def supnas_t18_x1_00(**kwargs):
+    model = ValImageNet([9, 17, 13, 19, 19, 19, 6, 0, 19, 19, 19, 3, 0, 3, 0,
+                         0, 19, 19, 0, 19, 4, 7, 1, 6, 6],
+                        scale=1,
+                        channel_dist=[16, 32, 64, 128, 256],
+                        alloc_space=[1, 4, 4, 8, 4],
+                        cell_plan='aligned',
+                        alloc_plan='NR',
+                        **kwargs)
+    return model
+
+
+def supnas_t37_x0_92(**kwargs):
+    model = ValImageNet([19, 15, 10, 19, 19, 1, 17, 13, 6, 0, 6, 11, 9, 0, 0,
+                         3, 1, 6, 9, 9, 10, 3, 5, 13, 7],
+                        scale=0.92,
+                        channel_dist=[16, 32, 64, 128, 256],
+                        alloc_space=[1, 4, 4, 8, 4],
+                        cell_plan='aligned',
+                        alloc_plan='NR',
+                        **kwargs)
+    return model
+
+
+def supnas_t44_x1_00(**kwargs):
+    model = ValImageNet([16, 17, 0, 9, 12, 11, 6, 1, 3, 11, 3, 4, 2, 3, 11, 3,
+                         11, 3, 11, 6, 12, 7, 7, 4, 6],
+                        scale=1,
+                        channel_dist=[16, 32, 64, 128, 256],
+                        alloc_space=[1, 4, 4, 8, 4],
+                        cell_plan='aligned',
+                        alloc_plan='NR',
+                        **kwargs)
+    return model
+
+
+def supnas_t66_x1_11(**kwargs):
+    model = ValImageNet([12, 15, 10, 11, 11, 11, 7, 6, 3, 11, 6, 5, 11, 11,
+                         11, 6, 16, 11, 16, 11, 2, 7, 11, 7, 7],
+                        scale=1.11,
+                        channel_dist=[16, 32, 64, 128, 256],
+                        alloc_space=[1, 4, 4, 8, 4],
+                        cell_plan='aligned',
+                        alloc_plan='NR',
+                        **kwargs)
+    return model
+
+
+def supnas_t100_x0_96(**kwargs):
+    model = ValImageNet([10, 15, 12, 3, 9, 9, 4, 4, 14, 17, 12, 8, 17, 5, 8, 13,
+                         12, 5, 12, 13,  5,  5,  8, 15, 1],
+                        scale=0.96,
+                        channel_dist=[16, 32, 64, 128, 256],
+                        alloc_space=[1, 4, 4, 8, 4],
+                        cell_plan='aligned',
                         alloc_plan='NR',
                         **kwargs)
     return model
