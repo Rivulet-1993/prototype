@@ -125,6 +125,16 @@ def get_bn(config):
         return BNFunc
 
 
+def get_norm_layer(config):
+    if config.type == 'GroupNorm':
+        def NormLayer(num_channels, *args, **kwargs):
+            return torch.nn.GroupNorm(
+                num_channels=num_channels, *args, **kwargs, **config.kwargs)
+    else:
+        assert False
+    return NormLayer
+
+
 def count_params(model):
     logger = get_logger(__name__)
 

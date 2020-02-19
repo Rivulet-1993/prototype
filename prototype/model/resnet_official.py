@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from linklink.nn import SyncBatchNorm2d
-from prototype.utils.misc import get_logger, get_bn
+from prototype.utils.misc import get_logger, get_bn, get_norm_layer
 
 
 __all__ = ['ResNet', 'resnet18_official', 'resnet34_official', 'resnet50_official', 'resnet101_official',
@@ -126,9 +126,11 @@ class ResNet(nn.Module):
         global BN
         self.logger = get_logger(__name__)
 
-        BN = get_bn(bn)
         if norm_layer is None:
+            BN = get_bn(bn)
             norm_layer = BN
+        else:
+            norm_layer = get_norm_layer(norm_layer)
 
         self._norm_layer = norm_layer
 
