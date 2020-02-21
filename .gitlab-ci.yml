@@ -6,7 +6,6 @@ image: "python:3.6"
 stages:
     - style_check
     - test
-    
 
 flake8:
     stage: style_check

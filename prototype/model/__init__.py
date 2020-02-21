@@ -28,7 +28,7 @@ from .mobilenet_v3 import mobilenet_v3  # noqa: F401
 
 
 def model_entry(config):
-    
+
     if config['type'] not in globals():
         from prototype.spring.wrapper import ClsSpringCommonInterface
         return ClsSpringCommonInterface.external_model_builder[config['type']](**config['kwargs'])

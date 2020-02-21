@@ -2,8 +2,7 @@
 
 
 def main():
-    print('hello')
-
+    print('This is Prototype!')
 
 if __name__ == '__main__':
     main()
