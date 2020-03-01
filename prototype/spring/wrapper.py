@@ -168,12 +168,12 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
         input, target = batch[0], batch[1]
         # forward
         logits = self.model(input)
-        loss = self.criterion(logits, target) / self.dist.world_size
+        loss = self.criterion(logits, target)
 
         # measure accuracy and record loss
         prec1, prec5 = accuracy(logits, target, topk=(1, 5))
 
-        reduced_loss = loss.clone()
+        reduced_loss = loss.clone() / self.dist.world_size
         reduced_prec1 = prec1.clone() / self.dist.world_size
         reduced_prec5 = prec5.clone() / self.dist.world_size
 
