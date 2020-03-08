@@ -6,6 +6,8 @@ from .datasets import ImageNetDataset
 from .pipelines import ImageNetTrainPipe, ImageNetValPipe, ImageNetTrainPipeV2, ImageNetValPipeV2
 from .nvidia_dali_dataloader import DaliDataLoader, dali_default_collate
 from .sampler import DistributedGivenIterationSampler, DistributedEpochSampler, DistributedSampler
+from .autoaugment import ImageNetPolicy, Cutout  # noqa: F401
+from prototype.utils.misc import get_logger
 
 try:
     import linklink.dali as link_dali
@@ -36,6 +38,8 @@ def make_imagenet_train_data(config):
         max_iter: int
         last_iter: int
     """
+
+    logger = get_logger(__name__)
 
     if config.use_dali:
         dataset = ImageNetDataset(
@@ -103,19 +107,24 @@ def make_imagenet_train_data(config):
                                          std=[0.229, 0.224, 0.225])
 
         # augmentation
-        aug = [transforms.RandomResizedCrop(config.input_size),
-               transforms.RandomHorizontalFlip()]
+        if config.get('autoaugment', False):
+            logger.info('Use Auto-Augmentation of ImageNetPolicy!')
+            aug = [transforms.RandomResizedCrop(config.input_size),
+                   ImageNetPolicy()]
+        else:
+            aug = [transforms.RandomResizedCrop(config.input_size),
+                   transforms.RandomHorizontalFlip()]
 
-        for k in config.augmentation.keys():
-            assert k in ['rotation', 'colorjitter']
-        rotation = config.augmentation.get('rotation', 0)
-        colorjitter = config.augmentation.get('colorjitter', None)
+            for k in config.augmentation.keys():
+                assert k in ['rotation', 'colorjitter']
+            rotation = config.augmentation.get('rotation', 0)
+            colorjitter = config.augmentation.get('colorjitter', None)
 
-        if rotation > 0:
-            aug.append(transforms.RandomRotation(rotation))
+            if rotation > 0:
+                aug.append(transforms.RandomRotation(rotation))
 
-        if colorjitter is not None:
-            aug.append(transforms.ColorJitter(*colorjitter))
+            if colorjitter is not None:
+                aug.append(transforms.ColorJitter(*colorjitter))
 
         aug.append(transforms.ToTensor())
         aug.append(normalize)
