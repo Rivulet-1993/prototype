@@ -16,8 +16,13 @@ from prototype.utils.misc import accuracy, load_state_model, count_params, count
 from prototype.model import model_entry
 from prototype.optimizer import FusedFP16SGD, SGD, Adam
 from prototype.solver.cls_solver import ClsSolver
+from prototype.data import make_imagenet_val_data
 
-from .SpringCommonInterface import Metric, SpringCommonInterface
+try:
+    from SpringCommonInterface import Metric, SpringCommonInterface
+except ImportError:
+    SpringCommonInterface = object
+    Metric = object
 
 from spring.nart.tools import pytorch
 
@@ -51,6 +56,8 @@ class ClsMetric(Metric):
 
 
 class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
+
+    external_model_builder = {}
 
     def __init__(self, config=None, work_dir=None, metric_dict=None, ckpt_dict=None, recover=''):
         self.work_dir = work_dir
@@ -130,11 +137,24 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
 
         self.model = DistModule(self.model, self.config.dist.sync)
 
+    def build_data(self):
+        super().build_data()
+        self.arch_data = make_imagenet_val_data(self.config.data)
+
     def get_batch(self, batch_type='train'):
+
         if batch_type == 'train':
-            if not self.train_data['iter']:
+            if not hasattr(self.train_data, 'iter'):
                 self.train_data['iter'] = iter(self.train_data['loader'])
             input, target = next(self.train_data['iter'])
+            target = target.squeeze().cuda().long()
+            input = input.cuda().half() if self.fp16 else input.cuda()
+            return input, target
+
+        elif batch_type == 'arch':
+            if not hasattr(self.arch_data, 'iter'):
+                self.arch_data['iter'] = iter(self.arch_data['loader'])
+            input, target = next(self.arch_data['iter'])
             target = target.squeeze().cuda().long()
             input = input.cuda().half() if self.fp16 else input.cuda()
             return input, target
@@ -148,12 +168,12 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
         input, target = batch[0], batch[1]
         # forward
         logits = self.model(input)
-        loss = self.criterion(logits, target) / self.dist.world_size
+        loss = self.criterion(logits, target)
 
         # measure accuracy and record loss
         prec1, prec5 = accuracy(logits, target, topk=(1, 5))
 
-        reduced_loss = loss.clone()
+        reduced_loss = loss.clone() / self.dist.world_size
         reduced_prec1 = prec1.clone() / self.dist.world_size
         reduced_prec5 = prec5.clone() / self.dist.world_size
 
@@ -187,6 +207,8 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
             self.metric_dict['eta'].set(self.get_eta())
         if self.metric_dict is not None and 'progress' in self.metric_dict:
             self.metric_dict['progress'].set(self.get_progress())
+        self.meters.batch_time.update(time.time() - self.end_time)
+        self.end_time = time.time()
 
     def get_dump_dict(self):
         state = {}
@@ -293,21 +315,16 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
         model.load_state_dict(ckpt_dict['model'], strict=True)
 
     @staticmethod
-    def build_model_helper(ckpt_path=None, config=None):
-
-        assert ckpt_path != config
-
-        if ckpt_path is not None:
-            ckpt = torch.load(ckpt_path, 'cpu')
-            config = EasyDict(ckpt['config'])
-
-        model = model_entry(config.model)
+    def build_model_helper(config_dict=None):
+        if not isinstance(config_dict, EasyDict):
+            config_dict = EasyDict(config_dict)
+        model = model_entry(config_dict.model)
         model.cuda()
 
         # handle fp16
-        if config.optimizer.type == 'FP16SGD' or \
-           config.optimizer.type == 'FusedFP16SGD' or \
-           config.optimizer.type == 'FP16RMSprop':
+        if config_dict.optimizer.type == 'FP16SGD' or \
+           config_dict.optimizer.type == 'FusedFP16SGD' or \
+           config_dict.optimizer.type == 'FP16RMSprop':
             fp16 = True
         else:
             fp16 = False
@@ -317,16 +334,50 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
             # try use link.fp16.register_float_module(your_module)
             # if you only need fp32 parameters set cast_args=False when call this
             # function, then call link.fp16.init() before call model.half()
-            if config.optimizer.get('fp16_normal_bn', False):
+            if config_dict.optimizer.get('fp16_normal_bn', False):
                 link.fp16.register_float_module(link.nn.SyncBatchNorm2d, cast_args=False)
                 link.fp16.register_float_module(torch.nn.BatchNorm2d, cast_args=False)
-            if config.optimizer.get('fp16_normal_fc', False):
+            if config_dict.optimizer.get('fp16_normal_fc', False):
                 link.fp16.register_float_module(torch.nn.Linear, cast_args=True)
             link.fp16.init()
             model.half()
 
-        model = DistModule(model, config.dist.sync)
+        model = DistModule(model, config_dict.dist.sync)
         return model
+
+    def show_log(self):
+        curr_step = self.curr_step
+        current_lr = self.lr_scheduler.get_lr()[0]
+        remain_secs = (self.total_step - curr_step) * self.meters.batch_time.avg
+        remain_time = datetime.timedelta(seconds=round(remain_secs))
+        finish_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time() + remain_secs))
+        log_msg = f'Iter: [{curr_step}/{self.total_step}]\t' \
+            f'Time {self.meters.batch_time.val:.3f} ({self.meters.batch_time.avg:.3f})\t' \
+            f'Data {self.meters.data_time.val:.3f} ({self.meters.data_time.avg:.3f})\t' \
+            f'Loss {self.meters.losses.val:.4f} ({self.meters.losses.avg:.4f})\t' \
+            f'Prec@1 {self.meters.top1.val:.3f} ({self.meters.top1.avg:.3f})\t' \
+            f'Prec@5 {self.meters.top5.val:.3f} ({self.meters.top5.avg:.3f})\t' \
+            f'LR {current_lr:.4f}\t' \
+            f'Remaining Time {remain_time} ({finish_time})' \
+
+        self.logger.info(log_msg)
+
+    @classmethod
+    def add_external_model(cls, name, callable_object):
+        '''Add external model into the element. After this interface is called, the element should
+        be able to build model by the given ``name``.
+
+        e.g. ::
+
+            task_helper.add_external_model('mbv2', MobileNetV2)
+
+        Then for prototype, if the model field in yaml is `mbv2`, a MobileNetV2 instance should be built successfully.
+
+        Args:
+            name (str): The identifier of callable_object
+            callable_object (callable object): A class or a function that is callable to build a torch.nn.Module model.
+        '''
+        cls.external_model_builder[name] = callable_object
 
     def to_caffe(self, save_prefix='model', input_size=None):
         with pytorch.convert_mode():
