@@ -14,7 +14,7 @@ from prototype.config import parse_config
 from prototype.utils.dist import link_dist, DistModule
 from prototype.utils.misc import accuracy, load_state_model, count_params, count_flops
 from prototype.model import model_entry
-from prototype.optimizer import FusedFP16SGD, SGD, Adam
+from prototype.optimizer import FusedFP16SGD, SGD, Adam, FP16RMSprop
 from prototype.solver.cls_solver import ClsSolver
 from prototype.data import make_imagenet_val_data
 
@@ -187,6 +187,9 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
         self.optimizer.zero_grad()
 
         if FusedFP16SGD is not None and isinstance(self.optimizer, FusedFP16SGD):
+            self.optimizer.backward(loss)
+            self.model.sync_gradients()
+        elif FP16RMSprop is not None and isinstance(self.optimizer, FP16RMSprop):
             self.optimizer.backward(loss)
             self.model.sync_gradients()
         elif isinstance(self.optimizer, SGD) or isinstance(self.optimizer, Adam):
