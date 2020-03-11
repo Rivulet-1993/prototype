@@ -24,8 +24,6 @@ except ImportError:
     SpringCommonInterface = object
     Metric = object
 
-from spring.nart.tools import pytorch
-
 
 class ClsMetric(Metric):
     def __init__(self, top1, top5, loss):
@@ -383,6 +381,8 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
         cls.external_model_builder[name] = callable_object
 
     def to_caffe(self, save_prefix='model', input_size=None):
+        from spring.nart.tools import pytorch
+
         with pytorch.convert_mode():
             pytorch.convert(self.model,
                             [(3, self.config.data.input_size,
