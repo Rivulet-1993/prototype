@@ -1,4 +1,4 @@
-from .scheduler import Step, StepDecay, Cosine # noqa F401
+from .scheduler import Step, StepDecay, Cosine, Poly # noqa F401
 
 
 def scheduler_entry(config):
