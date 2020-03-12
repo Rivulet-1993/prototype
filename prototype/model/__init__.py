@@ -24,6 +24,16 @@ from .resnet_official import (  # noqa: F401
     resnet18_official, resnet34_official, resnet50_official, resnet101_official, resnet152_official,
     resnext50_32x4d, resnext101_32x8d, wide_resnet50_2, wide_resnet101_2
 )
+from .condconv_resnet import (  # noqa: F401
+    resnet18_condconv_shared, resnet18_condconv_independent,
+    resnet34_condconv_shared, resnet34_condconv_independent,
+    resnet50_condconv_shared, resnet50_condconv_independent,
+    resnet101_condconv_shared, resnet101_condconv_independent,
+    resnet152_condconv_shared, resnet152_condconv_independent
+)
+from .condconv_mobilenet_v2 import (  # noqa: F401
+    mobilenetv2_condconv_pointwise, mobilenetv2_condconv_independent, mobilenetv2_condconv_shared
+)
 from .mobilenet_v3 import mobilenet_v3  # noqa: F401
 
 

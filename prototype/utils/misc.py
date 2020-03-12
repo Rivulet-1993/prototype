@@ -161,6 +161,11 @@ def count_params(model):
 
 
 def count_flops(model, input_shape):
+    try:
+        from prototype.model.layer import CondConv2d
+    except NotImplementedError:
+        print('Check whether the file exists!')
+
     logger = get_logger(__name__)
 
     flops_dict = {}
@@ -175,10 +180,40 @@ def count_flops(model, input_shape):
 
         return conv2d_hook
 
+    def make_condconv2d_hook(name):
+
+        def condconv2d_hook(m, input):
+            n, _, h, w = input[0].size(0), input[0].size(
+                1), input[0].size(2), input[0].size(3)
+            k, oc, c, kh, kw = m.weight.size()
+            if m.combine_kernel:
+                # flops of combining kernel
+                flops_ck = n * oc * c * kh * kw * k
+                # flops of group convolution: one group for each sample
+                # input: n*c*h*w
+                # weight: (n*oc)*c*kh*kw
+                # groups: n
+                flops_conv = n * h * w * oc * c * kh * kw / m.stride / m.stride / m.groups
+                flops_dict[name] = int(flops_ck + flops_conv)
+            else:
+                # flops of group convolution: one group for each expert
+                # input: n*(c*k)*h*w
+                # weight: (c*k)*oc*kh*kw
+                # groups: k
+                flops_conv = k * n * h * w * c * oc * kh * kw / m.stride / m.stride / m.groups
+                # flops of combining features
+                flops_cf = n * h * w * oc * k
+                flops_dict[name] = int(flops_conv + flops_cf)
+
+        return condconv2d_hook
+
     hooks = []
     for name, m in model.named_modules():
         if isinstance(m, torch.nn.Conv2d):
             h = m.register_forward_pre_hook(make_conv2d_hook(name))
+            hooks.append(h)
+        elif isinstance(m, CondConv2d):
+            h = m.register_forward_pre_hook(make_condconv2d_hook(name))
             hooks.append(h)
 
     input = torch.zeros(*input_shape).cuda()
