@@ -34,6 +34,9 @@ class ClsMetric(Metric):
     def __str__(self):
         return f'top1={self.top1} top5={self.top5} loss={self.loss}'
 
+    def __repr__(self):
+        return f'top1={self.top1} top5={self.top5} loss={self.loss}'
+
     def __eq__(self, other):
         return self.top1 == other.top1
 
@@ -135,27 +138,40 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
 
         self.model = DistModule(self.model, self.config.dist.sync)
 
+        return self.model
+
     def build_data(self):
         super().build_data()
         self.arch_data = make_imagenet_val_data(self.config.data)
+        # next update
+        # self.data_loaders['train'] = self.train_data
+        # self.data_loaders['val'] = self.val_data
+        # self.data_loaders['arch'] = self.arch_data
 
     def get_batch(self, batch_type='train'):
+        """data: train, val, test or arch (for NAS)
 
+        Return:
+            (batch, label): tuple.
+        """
         if batch_type == 'train':
             if not hasattr(self.train_data, 'iter'):
                 self.train_data['iter'] = iter(self.train_data['loader'])
             input, target = next(self.train_data['iter'])
-            target = target.squeeze().cuda().long()
-            input = input.cuda().half() if self.fp16 else input.cuda()
-            return input, target
+
+        elif batch_type == 'val':
+            if not hasattr(self.val_data, 'iter'):
+                self.val_data['iter'] = iter(self.val_data['loader'])
+            input, target = next(self.val_data['iter'])
 
         elif batch_type == 'arch':
             if not hasattr(self.arch_data, 'iter'):
                 self.arch_data['iter'] = iter(self.arch_data['loader'])
             input, target = next(self.arch_data['iter'])
-            target = target.squeeze().cuda().long()
-            input = input.cuda().half() if self.fp16 else input.cuda()
-            return input, target
+
+        target = target.squeeze().cuda().long()
+        input = input.cuda().half() if self.fp16 else input.cuda()
+        return input, target
 
     def forward(self, batch):
         self.curr_step += 1
@@ -416,6 +432,23 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
             save_to = self.config['to_kestrel']['save_to']
         shutil.move(kestrel_model, save_to)
         self.logger.info('save kestrel model to: {}'.format(save_to))
+
+    def convert_model(self, type='caffe'):
+        '''Dump pytorch model to deployable type model (skme or caffe).
+        More about SKME: https://confluence.sensetime.com/pages/viewpage.action?pageId=135889068
+
+        Args:
+            type: deploy model type. "skme" or "caffe"
+
+        Returns:
+            dict: A dict of model file (string) and type.
+            The format should be {"model": [model1, model2, ...], "type": "skme"}.
+        '''
+        assert type == 'caffe', 'only caffe model support for now'
+        return {
+            'model': [self.to_kestrel()],
+            'type': 'caffe'
+        }
 
 
 @link_dist
