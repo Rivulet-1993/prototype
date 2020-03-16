@@ -1,13 +1,14 @@
 import setuptools
+from prototype import __version__
 
 
 setuptools.setup(
     name='Spring-Prototype',
-    version='1.0.0',
+    version=__version__,
     author='Yuan Kun',
     author_email='yuankun@sensetime.com',
-    description='Distributed Framework for Image Classification',
-    url='http://gitlab.bj.sensetime.com/project-spring/prototype.git',
+    description='Distributed General Image Classification Framework',
+    url='http://gitlab.bj.sensetime.com/spring-ce/element/prototype.git',
     packages=setuptools.find_packages(),
     license='Internal',
     include_package_data=True,
