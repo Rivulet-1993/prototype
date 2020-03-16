@@ -155,17 +155,17 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
             (batch, label): tuple.
         """
         if batch_type == 'train':
-            if not hasattr(self.train_data, 'iter'):
+            if not self.train_data['iter']:
                 self.train_data['iter'] = iter(self.train_data['loader'])
             input, target = next(self.train_data['iter'])
 
         elif batch_type == 'val':
-            if not hasattr(self.val_data, 'iter'):
+            if not self.val_data['iter']:
                 self.val_data['iter'] = iter(self.val_data['loader'])
             input, target = next(self.val_data['iter'])
 
         elif batch_type == 'arch':
-            if not hasattr(self.arch_data, 'iter'):
+            if not self.arch_data['iter']:
                 self.arch_data['iter'] = iter(self.arch_data['loader'])
             input, target = next(self.arch_data['iter'])
 
