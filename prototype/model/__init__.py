@@ -35,6 +35,7 @@ from .condconv_mobilenet_v2 import (  # noqa: F401
     mobilenetv2_condconv_pointwise, mobilenetv2_condconv_independent, mobilenetv2_condconv_shared
 )
 from .mobilenet_v3 import mobilenet_v3  # noqa: F401
+from .ghostnet import ghostnet  # noqa: F401
 
 
 def model_entry(config):

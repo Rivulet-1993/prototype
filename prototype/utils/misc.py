@@ -217,9 +217,12 @@ def count_flops(model, input_shape):
             hooks.append(h)
 
     input = torch.zeros(*input_shape).cuda()
+
+    model.eval()
     with torch.no_grad():
         _ = model(input)
 
+    model.train()
     total_flops = 0
     for k, v in flops_dict.items():
         # logger.info('module {}: {}'.format(k, v))
