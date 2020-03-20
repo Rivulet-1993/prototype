@@ -142,7 +142,8 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
 
     def build_data(self):
         super().build_data()
-        self.arch_data = make_imagenet_val_data(self.config.data)
+        self.arch_data = make_imagenet_val_data(self.config.data, periodic=True)
+        self.arch_data['iter'] = None
         # next update
         # self.data_loaders['train'] = self.train_data
         # self.data_loaders['val'] = self.val_data
