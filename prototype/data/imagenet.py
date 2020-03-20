@@ -155,7 +155,15 @@ def make_imagenet_train_data(config):
     return {'loader': loader}
 
 
-def make_imagenet_val_data(config):
+def make_imagenet_val_data(config, periodic=False):
+    """Generate validation dataloader for evaluation or NAS.
+
+    args:
+        config (EasyDict): configuration for building the dataset.
+        periodic (bool): default ``False``,
+            If ``True``, samples will be called periodically (for neural network search);
+            If ``False``, samples will be called once for evaluation.
+    """
 
     if config.use_dali:
         dataset = ImageNetDataset(
@@ -169,7 +177,14 @@ def make_imagenet_val_data(config):
                                    config.input_size,
                                    config.test_resize)
 
-        sampler = DistributedSampler(dataset, round_up=False)
+        if periodic:
+            sampler = DistributedGivenIterationSampler(
+                dataset=dataset,
+                total_iter=config.max_iter,
+                batch_size=config.batch_size,
+                last_iter=config.last_iter)
+        else:
+            sampler = DistributedSampler(dataset, round_up=False)
 
         torch_loader = DataLoader(
             dataset, batch_size=config.batch_size, shuffle=False,
@@ -185,7 +200,14 @@ def make_imagenet_val_data(config):
             config.val_meta,
             read_from=config.read_from)
 
-        sampler = DistributedSampler(dataset, round_up=False)
+        if periodic:
+            sampler = DistributedGivenIterationSampler(
+                dataset=dataset,
+                total_iter=config.max_iter,
+                batch_size=config.batch_size,
+                last_iter=config.last_iter)
+        else:
+            sampler = DistributedSampler(dataset, round_up=False)
 
         pipeline = ImageNetValPipeV2(config.val_root,
                                      config.val_meta,
@@ -211,7 +233,14 @@ def make_imagenet_val_data(config):
             ]),
             read_from=config.read_from)
 
-        sampler = DistributedSampler(dataset, round_up=False)
+        if periodic:
+            sampler = DistributedGivenIterationSampler(
+                dataset=dataset,
+                total_iter=config.max_iter,
+                batch_size=config.batch_size,
+                last_iter=config.last_iter)
+        else:
+            sampler = DistributedSampler(dataset, round_up=False)
 
         loader = DataLoader(
             dataset, batch_size=config.batch_size, shuffle=False,
