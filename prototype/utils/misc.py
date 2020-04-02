@@ -383,6 +383,18 @@ def load_state_optimizer(optimizer, state):
     optimizer.load_state_dict(state)
 
 
+def modify_state(state, config):
+    for key in config['key']:
+        if key == 'optimizer':
+            state.pop(key)
+        elif key == 'last_iter':
+            state['last_iter'] = 0
+
+    for module in config['model']:
+        state['model'].pop(module)
+    return state
+
+
 def mixup_data(x, y, alpha=1.0):
     '''Returns mixed inputs, pairs of targets, and lambda'''
     if alpha > 0:

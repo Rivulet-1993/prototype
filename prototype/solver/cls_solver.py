@@ -13,7 +13,7 @@ from prototype.config import parse_config
 from prototype.utils.dist import link_dist, DistModule
 from prototype.utils.misc import makedir, create_logger, get_logger, count_params, count_flops, \
     param_group_all, AverageMeter, accuracy, load_state_model, load_state_optimizer, mixup_data, \
-    mixup_criterion, detailed_metrics
+    mixup_criterion, detailed_metrics, modify_state
 from prototype.utils.ema import EMA
 from prototype.model import model_entry
 from prototype.optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD
@@ -57,6 +57,8 @@ class ClsSolver(BaseSolver):
         if self.recover:
             self.state = torch.load(self.recover, 'cpu')
             self.logger.info(f"======= recovering from {self.recover}, keys={list(self.state.keys())}... =======")
+            if hasattr(self.config, 'ignore'):
+                self.state = modify_state(self.state, self.config.ignore)
         else:
             self.state = {}
             self.state['last_iter'] = 0
