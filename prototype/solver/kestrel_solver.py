@@ -66,7 +66,7 @@ class KestrelSolver(ClsSolver):
             kestrel_config['class_label']['imagenet']['labels'] = [
                 str(i) for i in np.arange(num_classes)]
             kestrel_config['class_label']['imagenet']['feature_start'] = 0
-            kestrel_config['class_label']['imagenet']['feature_end'] = num_classes
+            kestrel_config['class_label']['imagenet']['feature_end'] = num_classes - 1
 
         self.kestrel_config = kestrel_config
 
