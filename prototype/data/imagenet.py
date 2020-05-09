@@ -7,6 +7,7 @@ from .pipelines import ImageNetTrainPipe, ImageNetValPipe, ImageNetTrainPipeV2, 
 from .nvidia_dali_dataloader import DaliDataLoader, dali_default_collate
 from .sampler import DistributedGivenIterationSampler, DistributedEpochSampler, DistributedSampler
 from .autoaugment import ImageNetPolicy, Cutout  # noqa: F401
+from .moco_transform import TwoCropsTransform, GaussianBlur
 from prototype.utils.misc import get_logger
 
 try:
@@ -40,6 +41,9 @@ def make_imagenet_train_data(config):
     """
 
     logger = get_logger(__name__)
+
+    config.moco_protocol = config.get('moco_protocol', False)
+    config.linear_protocol = config.get('linear_protocol', False)
 
     if config.use_dali:
         dataset = ImageNetDataset(
@@ -101,6 +105,89 @@ def make_imagenet_train_data(config):
         loader = link_dali.DataLoader(pipeline, config.batch_size, len(sampler),
                                       config.dali_workers,
                                       last_iter=config.last_iter)
+
+    elif config.moco_protocol:
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+        if config.augmentation.type == "moco_v1":
+            aug = [
+                transforms.RandomResizedCrop(224, scale=(0.2, 1.)),
+                transforms.RandomGrayscale(p=0.2),
+                transforms.ColorJitter(0.4, 0.4, 0.4, 0.4),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                normalize
+            ]
+        elif config.augmentation.type == "moco_v2":
+            aug = [
+                transforms.RandomResizedCrop(224, scale=(0.2, 1.)),
+                transforms.RandomApply([
+                    transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)  # not strengthened
+                ], p=0.8),
+                transforms.RandomGrayscale(p=0.2),
+                transforms.RandomApply([GaussianBlur([.1, 2.])], p=0.5),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                normalize
+            ]
+        else:
+            raise RuntimeError("undefined augmentation type for moco")
+
+        dataset = ImageNetDataset(
+            config.train_root,
+            config.train_meta,
+            TwoCropsTransform(transforms.Compose(aug)),
+            read_from=config.read_from)
+
+        if config.epoch_wise_shuffle:
+            sampler = DistributedEpochSampler(
+                dataset=dataset,
+                total_iter=config.max_iter,
+                batch_size=config.batch_size,
+                last_iter=config.last_iter)
+        else:
+            sampler = DistributedGivenIterationSampler(
+                dataset=dataset,
+                total_iter=config.max_iter,
+                batch_size=config.batch_size,
+                last_iter=config.last_iter)
+
+        loader = DataLoader(
+            dataset, batch_size=config.batch_size, shuffle=False,
+            num_workers=config.workers, pin_memory=True, sampler=sampler)
+
+    elif config.linear_protocol:
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+        aug = [
+            transforms.RandomResizedCrop(config.input_size),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ]
+
+        dataset = ImageNetDataset(
+            config.train_root,
+            config.train_meta,
+            transforms.Compose(aug),
+            read_from=config.read_from)
+
+        if config.epoch_wise_shuffle:
+            sampler = DistributedEpochSampler(
+                dataset=dataset,
+                total_iter=config.max_iter,
+                batch_size=config.batch_size,
+                last_iter=config.last_iter)
+        else:
+            sampler = DistributedGivenIterationSampler(
+                dataset=dataset,
+                total_iter=config.max_iter,
+                batch_size=config.batch_size,
+                last_iter=config.last_iter)
+
+        loader = DataLoader(
+            dataset, batch_size=config.batch_size, shuffle=False,
+            num_workers=config.workers, pin_memory=True, sampler=sampler)
 
     else:
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
