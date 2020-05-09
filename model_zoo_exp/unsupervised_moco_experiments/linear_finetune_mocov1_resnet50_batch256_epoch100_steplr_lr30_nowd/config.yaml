@@ -1,0 +1,61 @@
+type: imagenet
+version: 0.1
+config:
+    model:
+        type: resnet50_official
+        kwargs:
+            freeze_layer: True
+            bn:
+                use_sync_bn: False
+                kwargs: {}
+
+    moco_pretrain: ../mocov1_resnet50_batch256_epoch200_cosinelr_lr0.03_dim128/checkpoints/ckpt.pth.tar
+
+    dist:
+        sync: False
+
+    optimizer:
+        type: SGD
+        kwargs:
+            nesterov: True
+            momentum: 0.9
+            weight_decay: 0.0
+
+    lr_scheduler:
+        type: Step
+        kwargs:
+            lr_steps: [300000, 400000]
+            lr_mults: [0.1, 0.1]
+
+            base_lr: 0.1
+            warmup_lr: 30.0
+            warmup_steps: 10000
+            max_iter: 500000
+
+    label_smooth: 0.1
+    ema:
+        enable: False
+
+    data:
+        use_dali: False
+        use_dali_v2: False
+        linear_protocol: True
+        read_from: mc
+        batch_size: 32
+        dali_workers: 4
+        workers: 4
+        pin_memory: True
+        epoch_wise_shuffle: False
+
+        input_size: 224
+        test_resize: 256
+        augmentation:
+            colorjitter:
+        train_root: /mnt/lustre/share/images/train
+        train_meta: /mnt/lustre/share/images/meta/train.txt
+        val_root: /mnt/lustre/share/images/val
+        val_meta: /mnt/lustre/share/images/meta/val.txt
+
+    print_freq: 10
+    val_freq: 1000
+    save_many: False

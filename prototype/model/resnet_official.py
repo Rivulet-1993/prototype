@@ -119,6 +119,7 @@ class ResNet(nn.Module):
                  norm_layer=None,
                  deep_stem=False,
                  avg_down=False,
+                 freeze_layer=False,
                  bn=None):
 
         super(ResNet, self).__init__()
@@ -138,6 +139,8 @@ class ResNet(nn.Module):
         self.dilation = 1
         self.deep_stem = deep_stem
         self.avg_down = avg_down
+        self.num_classes = num_classes
+        self.freeze_layer = freeze_layer
 
         if replace_stride_with_dilation is None:
             # each element in the tuple indicates if we should replace
@@ -228,6 +231,25 @@ class ResNet(nn.Module):
                                 norm_layer=norm_layer))
 
         return nn.Sequential(*layers)
+
+    def freeze_conv_layer(self):
+        layers = [
+            nn.Sequential(self.conv1, self.bn1, self.relu, self.maxpool),
+            self.layer1, self.layer2, self.layer3, self.layer4
+        ]
+        for layer in layers:
+            layer.eval()
+            for param in layer.parameters():
+                param.requires_grad = False
+
+    def train(self, mode=True):
+        self.training = mode
+        for module in self.children():
+            module.train(mode)
+
+        if self.freeze_layer:
+            self.freeze_conv_layer()
+        return self
 
     def _forward_impl(self, x):
         # See note [TorchScript super()]
