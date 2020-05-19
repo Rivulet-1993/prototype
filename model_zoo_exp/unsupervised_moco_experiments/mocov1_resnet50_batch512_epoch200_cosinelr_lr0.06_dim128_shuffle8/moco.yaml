@@ -10,7 +10,7 @@ config:
                 kwargs: {}
 
     dist:
-        sync: False
+        sync: True
 
     moco:
         kwargs:

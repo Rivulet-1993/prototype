@@ -9,7 +9,7 @@ config:
                 use_sync_bn: False
                 kwargs: {}
 
-    moco_pretrain: ../mocov1_resnet50_batch256_epoch200_cosinelr_lr0.03_dim128/checkpoints/ckpt.pth.tar
+    moco_pretrain: ../mocov1_resnet50_batch512_epoch200_cosinelr_lr0.06_dim128_shuffle16/checkpoints/ckpt.pth.tar
 
     dist:
         sync: False
