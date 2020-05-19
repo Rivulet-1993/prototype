@@ -1,4 +1,10 @@
 from .mobilenet_v2 import mobilenet_v2  # noqa: F401
+from .regnet import (  # noqa: F401
+    regnetx_200m, regnetx_400m, regnetx_600m, regnetx_800m,
+    regnetx_1600m, regnetx_3200m, regnetx_4000m, regnetx_6400m,
+    regnety_200m, regnety_400m, regnety_600m, regnety_800m,
+    regnety_1600m, regnety_3200m, regnety_4000m, regnety_6400m,
+)
 from .resnet import resnet18, resnet34, resnet50, resnet101, resnet152  # noqa: F401
 from .preact_resnet import (  # noqa: F401
     preact_resnet18, preact_resnet34, preact_resnet50,
