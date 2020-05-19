@@ -169,6 +169,7 @@ def count_flops(model, input_shape):
     logger = get_logger(__name__)
 
     flops_dict = {}
+
     def make_conv2d_hook(name):
 
         def conv2d_hook(m, input):
@@ -384,14 +385,18 @@ def load_state_optimizer(optimizer, state):
 
 
 def modify_state(state, config):
-    for key in config['key']:
-        if key == 'optimizer':
-            state.pop(key)
-        elif key == 'last_iter':
-            state['last_iter'] = 0
+    if hasattr(config, 'key'):
+        for key in config['key']:
+            if key == 'optimizer':
+                state.pop(key)
+            elif key == 'last_iter':
+                state['last_iter'] = 0
+            elif key == 'ema':
+                state.pop('ema')
 
-    for module in config['model']:
-        state['model'].pop(module)
+    if hasattr(config, 'model'):
+        for module in config['model']:
+            state['model'].pop(module)
     return state
 
 
