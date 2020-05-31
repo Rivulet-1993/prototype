@@ -1,13 +1,13 @@
-from torch.optim import SGD, RMSprop, Adadelta, Adagrad, Adam # noqa F401
-from .fp16_optim import FP16SGD, FP16RMSprop # noqa F401
+import linklink as link
+
+from torch.optim import SGD, RMSprop, Adadelta, Adagrad, Adam  # noqa F401
+from .lars import LARS  # noqa F401
+from .fp16_optim import FP16SGD, FP16RMSprop  # noqa F401
 try:
     from linklink.optim import FusedFP16SGD
 except ModuleNotFoundError:
     print('import FusedFP16SGD failed, linklink version should >= 0.1.6')
     FusedFP16SGD = None
-
-
-import linklink as link
 
 
 def optim_entry(config):
