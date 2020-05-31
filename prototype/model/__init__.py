@@ -42,6 +42,7 @@ from .condconv_mobilenet_v2 import (  # noqa: F401
 )
 from .mobilenet_v3 import mobilenet_v3  # noqa: F401
 from .ghostnet import ghostnet  # noqa: F401
+from .resnest import resnest50, resnest101, resnest200, resnest269  # noqa: F401
 
 
 def model_entry(config):
