@@ -13,7 +13,7 @@ from prototype.config import parse_config
 from prototype.utils.dist import link_dist, DistModule
 from prototype.utils.misc import makedir, create_logger, get_logger, count_params, count_flops, \
     param_group_all, AverageMeter, accuracy, load_state_model, load_state_optimizer, mixup_data, \
-    mixup_criterion, detailed_metrics, modify_state
+    mix_criterion, detailed_metrics, modify_state, cutmix_data
 from prototype.utils.ema import EMA
 from prototype.model import model_entry
 from prototype.optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD
@@ -187,9 +187,11 @@ class ClsSolver(BaseSolver):
         else:
             self.criterion = torch.nn.CrossEntropyLoss()
         self.mixup = self.config.get('mixup', 1.0)
+        self.cutmix = self.config.get('cutmix', 0.0)
         if self.mixup < 1.0:
-            self.logger.info(
-                'using mixup with alpha of: {}'.format(self.mixup))
+            self.logger.info('using mixup with alpha of: {}'.format(self.mixup))
+        if self.cutmix > 0.0:
+            self.logger.info('using cutmix with alpha of: {}'.format(self.cutmix))
 
     def train(self):
 
@@ -215,16 +217,17 @@ class ClsSolver(BaseSolver):
 
             # mixup
             if self.mixup < 1.0:
-                input, target_a, target_b, lam = mixup_data(
-                    input, target, self.mixup)
+                input, target_a, target_b, lam = mixup_data(input, target, self.mixup)
+            # cutmix
+            if self.cutmix > 0.0:
+                input, target_a, target_b, lam = cutmix_data(input, target, self.cutmix)
 
             # forward
             logits = self.model(input)
 
             # mixup
-            if self.mixup < 1.0:
-                loss = mixup_criterion(
-                    self.criterion, logits, target_a, target_b, lam)
+            if self.mixup < 1.0 or self.cutmix > 0.0:
+                loss = mix_criterion(self.criterion, logits, target_a, target_b, lam)
                 loss /= self.dist.world_size
             else:
                 loss = self.criterion(logits, target) / self.dist.world_size
