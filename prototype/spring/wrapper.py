@@ -8,6 +8,7 @@ import copy
 import yaml
 import shutil
 import json
+import numpy as np
 import linklink as link
 
 from prototype.config import parse_config
@@ -450,6 +451,28 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
             'model': [self.to_kestrel()],
             'type': 'caffe'
         }
+
+    def get_kestrel_parameter(self):
+        '''For Classifier Plugin'''
+        kestrel_param = EasyDict()
+        kestrel_param['pixel_means'] = self.config.get('pixel_means', [124.16, 116.736, 103.936])
+        kestrel_param['pixel_stds'] = self.config.get('pixel_stds', [58.624, 57.344, 57.6])
+        kestrel_param['is_rgb'] = self.config.get('is_rgb', True)
+        kestrel_param['save_all_label'] = self.config.get('save_all_label', True)
+        kestrel_param['type'] = self.config.get('type', 'UNKNOWN')
+        if hasattr(self.config, 'class_label'):
+            kestrel_param['class_label'] = self.config['class_label']
+        else:
+            kestrel_param['class_label'] = {}
+            kestrel_param['class_label']['imagenet'] = {}
+            kestrel_param['class_label']['imagenet']['calculator'] = 'bypass'
+            num_classes = self.config.model.get('num_classes', 1000)
+            kestrel_param['class_label']['imagenet']['labels'] = [
+                str(i) for i in np.arange(num_classes)]
+            kestrel_param['class_label']['imagenet']['feature_start'] = 0
+            kestrel_param['class_label']['imagenet']['feature_end'] = num_classes - 1
+
+        return kestrel_param
 
 
 @link_dist
