@@ -122,6 +122,7 @@ class ShuffleNetV2(nn.Module):
             nn.ReLU(inplace=True),
         )
 
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(output_channels, num_classes)
 
         for m in self.modules():
@@ -143,7 +144,8 @@ class ShuffleNetV2(nn.Module):
         x = self.stage3(x)
         x = self.stage4(x)
         x = self.conv5(x)
-        x = x.mean([2, 3])  # globalpool
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
         x = self.fc(x)
         return x
 

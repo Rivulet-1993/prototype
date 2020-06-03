@@ -103,14 +103,15 @@ class MNASNet(torch.nn.Module):
             nn.ReLU(inplace=True),
         ]
         self.layers = nn.Sequential(*layers)
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(nn.Dropout(p=dropout, inplace=True),
                                         nn.Linear(1280, num_classes))
         self._initialize_weights()
 
     def forward(self, x):
         x = self.layers(x)
-        # Equivalent to global avgpool and removing H and W dimensions.
-        x = x.mean([2, 3])
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
         return self.classifier(x)
 
     def _initialize_weights(self):

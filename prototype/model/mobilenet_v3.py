@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -215,7 +216,7 @@ class MobileNetV3(nn.Module):
             raise NotImplementedError
 
         self.features = nn.Sequential(*self.features)
-
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = nn.Sequential(
             nn.Dropout(p=dropout),
             nn.Linear(last_channel, num_classes),
@@ -225,7 +226,8 @@ class MobileNetV3(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        x = x.mean([2, 3])
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
 
