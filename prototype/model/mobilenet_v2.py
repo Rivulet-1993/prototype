@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from torch.nn import init
 
@@ -132,7 +133,7 @@ class MobileNetV2(nn.Module):
             input_channel, self.last_channel, kernel_size=1))
         # make it nn.Sequential
         self.features = nn.Sequential(*features)
-
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         # building classifier
         self.classifier = nn.Sequential(
             nn.Dropout(dropout),
@@ -161,7 +162,8 @@ class MobileNetV2(nn.Module):
         # This exists since TorchScript doesn't support inheritance, so the superclass method
         # (this one) needs to have a name other than `forward` that can be accessed in a subclass
         x = self.features(x)
-        x = x.mean([2, 3])
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
 

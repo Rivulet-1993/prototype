@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 import linklink as link
 from prototype.utils.misc import get_logger, get_bn
@@ -312,7 +313,7 @@ class MobileNetV2CondConv(nn.Module):
                 input_channel, self.last_channel, kernel_size=1))
         # make it nn.Sequential
         self.features = nn.Sequential(*features)
-
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         # building classifier
         if fc_condconv:
             # change kernel_size to the size of feature maps
@@ -348,13 +349,14 @@ class MobileNetV2CondConv(nn.Module):
         # (this one) needs to have a name other than `forward` that can be accessed in a subclass
         x = self.features(x)
         if self.fc_condconv:
-            x = x.mean([2, 3], keepdim=True)
+            x = self.avgpool(x)
             x = self.dropout(x)
             routing_weight = self.classifier_router(x)
             x = self.classifier(x, routing_weight)
             x = x.squeeze_()
         else:
-            x = x.mean([2, 3])
+            x = self.avgpool(x)
+            x = torch.flatten(x, 1)
             x = self.classifier(x)
         return x
 
