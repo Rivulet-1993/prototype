@@ -5,7 +5,7 @@ from prototype.utils.misc import get_logger, get_bn
 
 BN = None
 
-__all__ = ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']
+__all__ = ['resnet18', 'resnet26', 'resnet34', 'resnet50', 'resnet101', 'resnet152', 'resnet_custom']
 
 
 def conv3x3(in_planes, out_planes, stride=1):
@@ -198,6 +198,11 @@ def resnet18(**kwargs):
     return model
 
 
+def resnet26(**kwargs):
+    model = ResNet(Bottleneck, [2, 2, 2, 2], **kwargs)
+    return model
+
+
 def resnet34(**kwargs):
     model = ResNet(BasicBlock, [3, 4, 6, 3], **kwargs)
     return model
@@ -215,4 +220,18 @@ def resnet101(**kwargs):
 
 def resnet152(**kwargs):
     model = ResNet(Bottleneck, [3, 8, 36, 3], **kwargs)
+    return model
+
+
+def resnet_custom(**kwargs):
+    assert 'block' in kwargs and 'layers' in kwargs, 'Require block and layers'
+    block = kwargs.pop('block')
+    layers = kwargs.pop('layers')
+    if block == 'basic':
+        block = BasicBlock
+    elif block == 'bottleneck':
+        block = Bottleneck
+    else:
+        raise Exception('Unsupported block type.')
+    model = ResNet(block, layers, **kwargs)
     return model
