@@ -5,7 +5,10 @@ from .regnet import (  # noqa: F401
     regnety_200m, regnety_400m, regnety_600m, regnety_800m,
     regnety_1600m, regnety_3200m, regnety_4000m, regnety_6400m,
 )
-from .resnet import resnet18, resnet34, resnet50, resnet101, resnet152  # noqa: F401
+from .resnet import (  # noqa: F401
+    resnet18, resnet26, resnet34, resnet50,
+    resnet101, resnet152, resnet_custom
+)
 from .preact_resnet import (  # noqa: F401
     preact_resnet18, preact_resnet34, preact_resnet50,
     preact_resnet101, preact_resnet152
