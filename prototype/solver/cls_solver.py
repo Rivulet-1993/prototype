@@ -20,6 +20,7 @@ from prototype.optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD
 from prototype.lr_scheduler import scheduler_entry
 from prototype.data import make_imagenet_train_data, make_imagenet_val_data
 from prototype.loss_functions import LabelSmoothCELoss
+from prototype.utils.user_analysis_helper import send_info
 
 
 class ClsSolver(BaseSolver):
@@ -27,17 +28,20 @@ class ClsSolver(BaseSolver):
     def __init__(self, config_file, recover=''):
         self.config_file = config_file
         self.recover = recover
+        self.prototype_info = EasyDict()
         self.config = parse_config(config_file)
         self.setup_env()
         self.build_model()
         self.build_optimizer()
         self.build_lr_scheduler()
         self.build_data()
+        send_info(self.prototype_info)
 
     def setup_env(self):
         # dist
         self.dist = EasyDict()
         self.dist.rank, self.dist.world_size = link.get_rank(), link.get_world_size()
+        self.prototype_info.world_size = self.dist.world_size
         # directories
         self.path = EasyDict()
         self.path.root_path = os.path.dirname(self.config_file)
@@ -77,6 +81,7 @@ class ClsSolver(BaseSolver):
                     self.config.lms.kwargs.limit))
 
         self.model = model_entry(self.config.model)
+        self.prototype_info.model = self.config.model.type
         self.model.cuda()
 
         count_params(self.model)
@@ -118,6 +123,7 @@ class ClsSolver(BaseSolver):
 
         opt_config = self.config.optimizer
         opt_config.kwargs.lr = self.config.lr_scheduler.kwargs.base_lr
+        self.prototype_info.optimizer = self.config.optimizer.type
 
         # make param_groups
         pconfig = {}
@@ -151,6 +157,7 @@ class ClsSolver(BaseSolver):
             self.ema.load_state_dict(self.state['ema'])
 
     def build_lr_scheduler(self):
+        self.prototype_info.lr_scheduler = self.config.lr_scheduler.type
         self.config.lr_scheduler.kwargs.optimizer = self.optimizer.optimizer if isinstance(self.optimizer, FP16SGD) or \
             isinstance(self.optimizer, FP16RMSprop) else self.optimizer
         self.config.lr_scheduler.kwargs.last_iter = self.state['last_iter']
@@ -167,6 +174,9 @@ class ClsSolver(BaseSolver):
                 f"======= recovering from the max_iter: {self.config.data.max_iter} =======")
 
         self.val_data = make_imagenet_val_data(self.config.data)
+
+        self.prototype_info.train_data = self.config.data.train_root
+        self.prototype_info.val_data = self.config.data.val_root
 
     def pre_train(self):
         self.meters = EasyDict()
