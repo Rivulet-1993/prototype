@@ -9,6 +9,5 @@ def send_info(info):
                      "version": __version__}
     PrototypeINFO.update(info)
     if link.get_rank() == 0:
-        import pdb; pdb.set_trace()
         t = threading.Thread(target=send, args=(PrototypeINFO, ))
         t.start()
