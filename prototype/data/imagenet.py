@@ -118,7 +118,7 @@ def make_imagenet_train_data(config):
                 transforms.ToTensor(),
                 normalize
             ]
-        elif config.augmentation.type == "moco_v2":
+        elif config.augmentation.type == "moco_v2" or config.augmentation.type == 'simclr':
             aug = [
                 transforms.RandomResizedCrop(224, scale=(0.2, 1.)),
                 transforms.RandomApply([
@@ -131,7 +131,7 @@ def make_imagenet_train_data(config):
                 normalize
             ]
         else:
-            raise RuntimeError("undefined augmentation type for moco")
+            raise RuntimeError("undefined augmentation type for unsupervised learning")
 
         dataset = ImageNetDataset(
             config.train_root,
