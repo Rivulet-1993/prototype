@@ -18,6 +18,7 @@ from prototype.model import model_entry
 from prototype.optimizer import FusedFP16SGD, SGD, Adam, FP16RMSprop
 from prototype.solver.cls_solver import ClsSolver
 from prototype.data import make_imagenet_val_data
+from prototype.utils.user_analysis_helper import send_info
 
 try:
     from SpringCommonInterface import Metric, SpringCommonInterface
@@ -62,6 +63,7 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
     external_model_builder = {}
 
     def __init__(self, config=None, work_dir=None, metric_dict=None, ckpt_dict=None, recover=''):
+        self.prototype_info = EasyDict()
         self.work_dir = work_dir
         self.metric_dict = metric_dict
         self.config_file = os.path.join(work_dir, 'config.yaml')
@@ -92,6 +94,7 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
 
         self.val_data['iter'] = None
         self.end_time = time.time()
+        send_info(self.prototype_info)
 
     def build_model(self):
         '''overwrite build_model function in ClsSolver for interface definition of not loading weights
@@ -420,10 +423,9 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
 
         kestrel_model = '{}_{}.tar'.format(model_name, version)
         to_kestrel_yml = 'temp_to_kestrel.yml'
-        self.config.pop('optimizer')
-        self.config.pop('lr_scheduler')
+        kestrel_param = self.get_kestrel_parameter()
         with open(to_kestrel_yml, 'w') as f:
-            yaml.dump(json.loads(json.dumps(self.config)), f)
+            yaml.dump(json.loads(kestrel_param), f)
 
         cmd = 'python -m spring.nart.tools.kestrel.classifier {} {} -v {} -c {} -n {}'.format(
             prototxt, caffemodel, version, to_kestrel_yml, model_name)
@@ -431,7 +433,10 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
         os.system(cmd)
 
         if save_to is None:
-            save_to = self.config['to_kestrel']['save_to']
+            save_to = kestrel_model
+        else:
+            save_to = os.path.join(save_to, kestrel_model)
+
         shutil.move(kestrel_model, save_to)
         self.logger.info('save kestrel model to: {}'.format(save_to))
 
@@ -448,7 +453,7 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
         '''
         assert type == 'caffe', 'only caffe model support for now'
         return {
-            'model': [self.to_kestrel()],
+            'model': [self.to_caffe()],
             'type': 'caffe'
         }
 
@@ -472,7 +477,7 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
             kestrel_param['class_label']['imagenet']['feature_start'] = 0
             kestrel_param['class_label']['imagenet']['feature_end'] = num_classes - 1
 
-        return kestrel_param
+        return json.dumps(kestrel_param)
 
 
 @link_dist
