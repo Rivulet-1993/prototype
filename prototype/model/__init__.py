@@ -27,7 +27,7 @@ from .hrnet import HRNet  # noqa: F401
 from .mnasnet import mnasnet  # noqa: F401
 from .nas_zoo import (  # noqa: F401
     mbnas_t29_x0_84, mbnas_t47_x1_00, supnas_t18_x1_00, supnas_t37_x0_92, supnas_t44_x1_00,
-    supnas_t66_x1_11, supnas_t100_x0_96
+    supnas_t66_x1_11, supnas_t100_x0_96, nas_custom
 )
 from .resnet_official import (  # noqa: F401
     resnet18_official, resnet34_official, resnet50_official, resnet101_official, resnet152_official,
