@@ -39,7 +39,13 @@ class Identity(nn.Module):
 
 
 class Rec(nn.Module):
-    def __init__(self, inplanes, outplanes, size_in, stride=1, k=3, t=6,
+    def __init__(self,
+                 inplanes,
+                 outplanes,
+                 size_in,
+                 stride=1,
+                 k=3,
+                 t=6,
                  forward=True):
         super(Rec, self).__init__()
 
@@ -49,22 +55,30 @@ class Rec(nn.Module):
         self.size_out = (size_in - 1 + stride) // stride
 
         if forward:
-            self.conv1 = nn.Conv2d(inplanes, inplanes * t, kernel_size=1,
+            self.conv1 = nn.Conv2d(inplanes,
+                                   inplanes * t,
+                                   kernel_size=1,
                                    bias=False)
             self.bn1 = BN(inplanes * t)
 
-            self.conv2_1 = nn.Conv2d(inplanes * t, inplanes * t,
+            self.conv2_1 = nn.Conv2d(inplanes * t,
+                                     inplanes * t,
                                      kernel_size=(1, k),
                                      stride=(1, stride),
-                                     padding=(0, padding), bias=False)
+                                     padding=(0, padding),
+                                     bias=False)
             self.bn2_1 = BN(inplanes * t)
-            self.conv2_2 = nn.Conv2d(inplanes * t, inplanes * t,
+            self.conv2_2 = nn.Conv2d(inplanes * t,
+                                     inplanes * t,
                                      kernel_size=(k, 1),
                                      stride=(stride, 1),
-                                     padding=(padding, 0), bias=False)
+                                     padding=(padding, 0),
+                                     bias=False)
             self.bn2_2 = BN(inplanes * t)
 
-            self.conv3 = nn.Conv2d(inplanes * t, outplanes, kernel_size=1,
+            self.conv3 = nn.Conv2d(inplanes * t,
+                                   outplanes,
+                                   kernel_size=1,
                                    bias=False)
             self.bn3 = BN(outplanes)
 
@@ -97,7 +111,13 @@ class Rec(nn.Module):
 
 
 class DualConv(nn.Module):
-    def __init__(self, inplanes, outplanes, size_in, stride=1, k=3, t=6,
+    def __init__(self,
+                 inplanes,
+                 outplanes,
+                 size_in,
+                 stride=1,
+                 k=3,
+                 t=6,
                  forward=True):
         super(DualConv, self).__init__()
         padding = k // 2
@@ -106,21 +126,30 @@ class DualConv(nn.Module):
         self.size_out = (size_in - 1 + stride) // stride
 
         if forward:
-            self.conv1 = nn.Conv2d(inplanes, inplanes * t, kernel_size=1,
+            self.conv1 = nn.Conv2d(inplanes,
+                                   inplanes * t,
+                                   kernel_size=1,
                                    bias=False)
             self.bn1 = BN(inplanes * t)
 
-            self.conv2_1 = nn.Conv2d(inplanes * t, inplanes * t, kernel_size=k,
+            self.conv2_1 = nn.Conv2d(inplanes * t,
+                                     inplanes * t,
+                                     kernel_size=k,
                                      stride=1,
-                                     padding=padding, bias=False)
+                                     padding=padding,
+                                     bias=False)
             self.bn2_1 = BN(inplanes * t)
-            self.conv2_2 = nn.Conv2d(inplanes * t, inplanes * t, kernel_size=k,
+            self.conv2_2 = nn.Conv2d(inplanes * t,
+                                     inplanes * t,
+                                     kernel_size=k,
                                      stride=stride,
                                      padding=padding,
                                      bias=False)
             self.bn2_2 = BN(inplanes * t)
 
-            self.conv3 = nn.Conv2d(inplanes * t, outplanes, kernel_size=1,
+            self.conv3 = nn.Conv2d(inplanes * t,
+                                   outplanes,
+                                   kernel_size=1,
                                    bias=False)
             self.bn3 = BN(outplanes)
             self.activation = nn.ReLU(inplace=True)
@@ -152,7 +181,13 @@ class DualConv(nn.Module):
 
 
 class NormalConv(nn.Module):
-    def __init__(self, inplanes, outplanes, size_in, stride=1, k=3, t=6,
+    def __init__(self,
+                 inplanes,
+                 outplanes,
+                 size_in,
+                 stride=1,
+                 k=3,
+                 t=6,
                  forward=True):
         super(NormalConv, self).__init__()
         padding = k // 2
@@ -161,16 +196,23 @@ class NormalConv(nn.Module):
         self.size_out = (size_in - 1 + stride) // stride
 
         if forward:
-            self.conv1 = nn.Conv2d(inplanes, inplanes * t, kernel_size=1,
+            self.conv1 = nn.Conv2d(inplanes,
+                                   inplanes * t,
+                                   kernel_size=1,
                                    bias=False)
             self.bn1 = BN(inplanes * t)
 
-            self.conv2 = nn.Conv2d(inplanes * t, inplanes * t, kernel_size=k,
-                                   stride=stride, padding=padding,
+            self.conv2 = nn.Conv2d(inplanes * t,
+                                   inplanes * t,
+                                   kernel_size=k,
+                                   stride=stride,
+                                   padding=padding,
                                    bias=False)
             self.bn2 = BN(inplanes * t)
 
-            self.conv3 = nn.Conv2d(inplanes * t, outplanes, kernel_size=1,
+            self.conv3 = nn.Conv2d(inplanes * t,
+                                   outplanes,
+                                   kernel_size=1,
                                    bias=False)
             self.bn3 = BN(outplanes)
             self.activation = nn.ReLU(inplace=True)
@@ -198,9 +240,17 @@ class NormalConv(nn.Module):
 
 
 class LinearBottleneck(nn.Module):
-    def __init__(self, inplanes, outplanes, size_in, stride=1, k=3, t=6,
-                 activation=nn.ReLU, forward=True,
-                 group=1, dilation=1):
+    def __init__(self,
+                 inplanes,
+                 outplanes,
+                 size_in,
+                 stride=1,
+                 k=3,
+                 t=6,
+                 activation=nn.ReLU,
+                 forward=True,
+                 group=1,
+                 dilation=1):
         super(LinearBottleneck, self).__init__()
         dk = k + (dilation - 1) * 2
         padding = dk // 2
@@ -209,16 +259,26 @@ class LinearBottleneck(nn.Module):
         self.size_out = (size_in - 1 + stride) // stride
 
         if forward:
-            self.conv1 = nn.Conv2d(inplanes, inplanes * t, kernel_size=1,
-                                   bias=False, groups=group)
-            self.bn1 = BN(inplanes * t)
-            self.conv2 = nn.Conv2d(inplanes * t, inplanes * t, kernel_size=k,
-                                   stride=stride, padding=padding,
+            self.conv1 = nn.Conv2d(inplanes,
+                                   inplanes * t,
+                                   kernel_size=1,
                                    bias=False,
-                                   groups=inplanes * t, dilation=dilation)
+                                   groups=group)
+            self.bn1 = BN(inplanes * t)
+            self.conv2 = nn.Conv2d(inplanes * t,
+                                   inplanes * t,
+                                   kernel_size=k,
+                                   stride=stride,
+                                   padding=padding,
+                                   bias=False,
+                                   groups=inplanes * t,
+                                   dilation=dilation)
             self.bn2 = BN(inplanes * t)
-            self.conv3 = nn.Conv2d(inplanes * t, outplanes, kernel_size=1,
-                                   bias=False, groups=group)
+            self.conv3 = nn.Conv2d(inplanes * t,
+                                   outplanes,
+                                   kernel_size=1,
+                                   bias=False,
+                                   groups=group)
             self.bn3 = BN(outplanes)
             self.activation = activation(inplace=True)
 
@@ -254,8 +314,14 @@ def channel_shuffle(x):
 
 
 class ShuffleBlock(nn.Module):
-    def __init__(self, inplanes, outplanes, size_in, stride=1, k=3,
-                 activation=nn.ReLU, forward=True,
+    def __init__(self,
+                 inplanes,
+                 outplanes,
+                 size_in,
+                 stride=1,
+                 k=3,
+                 activation=nn.ReLU,
+                 forward=True,
                  group=1):
         super(ShuffleBlock, self).__init__()
         padding = k // 2
@@ -264,23 +330,35 @@ class ShuffleBlock(nn.Module):
         self.size_out = (size_in - 1 + stride) // stride
 
         if forward:
-            self.conv1 = nn.Conv2d(inplanes, outplanes // 2, kernel_size=1,
-                                   bias=False, groups=1)
+            self.conv1 = nn.Conv2d(inplanes,
+                                   outplanes // 2,
+                                   kernel_size=1,
+                                   bias=False,
+                                   groups=1)
             self.bn1 = BN(outplanes // 2)
-            self.conv2 = nn.Conv2d(outplanes // 2, outplanes // 2,
+            self.conv2 = nn.Conv2d(outplanes // 2,
+                                   outplanes // 2,
                                    kernel_size=k,
-                                   stride=stride, padding=padding,
+                                   stride=stride,
+                                   padding=padding,
                                    bias=False,
                                    groups=outplanes // 2)
             self.bn2 = BN(outplanes // 2)
-            self.conv3 = nn.Conv2d(outplanes // 2, outplanes, kernel_size=1,
-                                   bias=False, groups=1)
+            self.conv3 = nn.Conv2d(outplanes // 2,
+                                   outplanes,
+                                   kernel_size=1,
+                                   bias=False,
+                                   groups=1)
             self.bn3 = BN(outplanes)
             self.activation = activation(inplace=True)
         if stride == 2:
             branch_proj = [
                 # dw
-                nn.Conv2d(inplanes, inplanes, k, stride, padding,
+                nn.Conv2d(inplanes,
+                          inplanes,
+                          k,
+                          stride,
+                          padding,
                           groups=inplanes,
                           bias=False),
                 BN(inplanes),
@@ -322,8 +400,7 @@ class ShuffleBlock(nn.Module):
             out = self.conv3(out)
             out = self.bn3(out)
             out = self.activation(out)
-            return torch.cat((self.branch_proj(x),
-                              self.branch_main(out)), 1)
+            return torch.cat((self.branch_proj(x), self.branch_main(out)), 1)
         else:
             raise
 
@@ -335,8 +412,7 @@ class FBNetValCell(nn.Module):
         for t in [1, 3, 6]:
             candidates.append(partial(LinearBottleneck, k=k, t=t))
             if t == 1:
-                candidates.append(partial(LinearBottleneck, k=k, t=t,
-                                          group=2))
+                candidates.append(partial(LinearBottleneck, k=k, t=t, group=2))
 
     def __init__(self, cin, size_in, stride, cout, branch):
         super(FBNetValCell, self).__init__()
@@ -463,11 +539,11 @@ class MBValCell(nn.Module):
         self.size_in = size_in
         self.pathes = nn.ModuleList()
         for branch in branches:
-            self.pathes.append(
-                MBValCell.candidates[branch](inplanes=self.cin,
-                                             outplanes=self.cout,
-                                             size_in=self.size_in,
-                                             stride=self.stride))
+            self.pathes.append(MBValCell.candidates[branch](
+                inplanes=self.cin,
+                outplanes=self.cout,
+                size_in=self.size_in,
+                stride=self.stride))
 
     def forward(self, curr_layer):
         """Runs the conv cell."""
@@ -488,8 +564,8 @@ class MACMBValCell(nn.Module):
         for t in [1, 3, 6]:
             if k == 3:
                 for d in [1, 2, 3]:
-                    candidates.append(partial(LinearBottleneck, k=k, t=t,
-                                              dilation=d))
+                    candidates.append(
+                        partial(LinearBottleneck, k=k, t=t, dilation=d))
             else:
                 candidates.append(partial(LinearBottleneck, k=k, t=t))
 
@@ -505,11 +581,11 @@ class MACMBValCell(nn.Module):
         self.size_in = size_in
         self.pathes = nn.ModuleList()
         for branch in branches:
-            self.pathes.append(
-                MACMBValCell.candidates[branch](inplanes=self.cin,
-                                                outplanes=self.cout,
-                                                size_in=self.size_in,
-                                                stride=self.stride))
+            self.pathes.append(MACMBValCell.candidates[branch](
+                inplanes=self.cin,
+                outplanes=self.cout,
+                size_in=self.size_in,
+                stride=self.stride))
 
     def forward(self, curr_layer):
         """Runs the conv cell."""
@@ -538,11 +614,11 @@ class MACMBLiteValCell(nn.Module):
         self.size_in = size_in
         self.pathes = nn.ModuleList()
         for branch in branches:
-            self.pathes.append(
-                MACMBLiteValCell.candidates[branch](inplanes=self.cin,
-                                                    outplanes=self.cout,
-                                                    size_in=self.size_in,
-                                                    stride=self.stride))
+            self.pathes.append(MACMBLiteValCell.candidates[branch](
+                inplanes=self.cin,
+                outplanes=self.cout,
+                size_in=self.size_in,
+                stride=self.stride))
 
     def forward(self, curr_layer):
         """Runs the conv cell."""
@@ -556,8 +632,16 @@ class MACMBLiteValCell(nn.Module):
 
 
 class ValNet(nn.Module):
-    def __init__(self, scale, channel_dist, num_classes, input_size,
-                 Cell, cell_seq, use_aux, keep_prob=-1, bn=None):
+    def __init__(self,
+                 scale,
+                 channel_dist,
+                 num_classes,
+                 input_size,
+                 Cell,
+                 cell_seq,
+                 use_aux,
+                 keep_prob=-1,
+                 bn=None):
         super(ValNet, self).__init__()
         global BN, bypass_bn_weight_list
         BN = get_bn(bn)
@@ -566,10 +650,9 @@ class ValNet(nn.Module):
 
         self._time = 0
         self.scale = scale
-        self.c = list(channel_dist[:1]) + [_make_divisible(ch *
-                                                           self.scale,
-                                                           8) for ch
-                                           in channel_dist[1:]]
+        self.c = list(channel_dist[:1]) + [
+            _make_divisible(ch * self.scale, 8) for ch in channel_dist[1:]
+        ]
         self.num_classes = num_classes
         self.input_size = input_size
         cell_seq = list(cell_seq)
@@ -600,13 +683,18 @@ class ValNet(nn.Module):
 
                 self.aux_idx = cell_idx + 1
             else:
-                raise NotImplementedError('unimplemented cell type: {}'.format(c))
+                raise NotImplementedError(
+                    'unimplemented cell type: {}'.format(c))
             curr_drop_path_keep_prob = \
                 self.calculate_curr_drop_path_keep_prob(cell_idx, keep_prob)
 
-            self.cells.append(Cell(cin, self.curr_size, stride, cout,
-                                   branch,
-                                   keep_prob=curr_drop_path_keep_prob))
+            self.cells.append(
+                Cell(cin,
+                     self.curr_size,
+                     stride,
+                     cout,
+                     branch,
+                     keep_prob=curr_drop_path_keep_prob))
             self.curr_size = (self.curr_size - 1 + stride) // stride
 
         self._set_tail()
@@ -659,54 +747,63 @@ class ValNet(nn.Module):
 
 
 class ValImageNet(ValNet):
-    def __init__(self, alloc_code, scale=1.0,
+    def __init__(self,
+                 alloc_code,
+                 scale=1.0,
                  channel_dist=(16, 32, 64, 128, 256),
-                 num_classes=1000, input_size=224,
-                 alloc_space=(1, 4, 4, 8, 4), cell_plan='super',
-                 alloc_plan='NR', use_aux=False, bn=None):
-        cell_seq = {'NR': lambda x: "N" * x[0] + "R" +
-                                    "N" * x[1] + "R" +
-                                    "N" * x[2] + "R" +
-                                    "N" * x[3] + "R" +
-                                    "N" * x[4],
-                    'NER': lambda x: "N" * x[0] + "R" +
-                                     "N" * x[1] + "R" +
-                                     "N" * x[2] + "R" +
-                                     "N" * x[3] + "E" +
-                                     "N" * x[4] + "R" +
-                                     "N" * x[5] + "E",
-                    }[alloc_plan](alloc_space)
+                 num_classes=1000,
+                 input_size=224,
+                 alloc_space=(1, 4, 4, 8, 4),
+                 cell_plan='super',
+                 alloc_plan='NR',
+                 use_aux=False,
+                 bn=None):
+        cell_seq = {
+            'NR':
+            lambda x: "N" * x[0] + "R" + "N" * x[1] + "R" + "N" * x[
+                2] + "R" + "N" * x[3] + "R" + "N" * x[4],
+            'NER':
+            lambda x: "N" * x[0] + "R" + "N" * x[1] + "R" + "N" * x[2] + "R" +
+            "N" * x[3] + "E" + "N" * x[4] + "R" + "N" * x[5] + "E",
+        }[alloc_plan](alloc_space)
         cell_seq = zip(cell_seq, alloc_code)
-        cell = {'super': SupValCell,
-                'mb': MBValCell,
-                'aligned': AlignedSupValCell,
-                'macmb': MACMBValCell,
-                'maclitemb': MACMBLiteValCell}[cell_plan]
+        cell = {
+            'super': SupValCell,
+            'mb': MBValCell,
+            'aligned': AlignedSupValCell,
+            'macmb': MACMBValCell,
+            'maclitemb': MACMBLiteValCell
+        }[cell_plan]
 
-        super(ValImageNet, self).__init__(scale, channel_dist,
-                                          num_classes, input_size,
-                                          cell, cell_seq, use_aux, bn=bn)
+        super(ValImageNet, self).__init__(scale,
+                                          channel_dist,
+                                          num_classes,
+                                          input_size,
+                                          cell,
+                                          cell_seq,
+                                          use_aux,
+                                          bn=bn)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out',
+                nn.init.kaiming_normal_(m.weight,
+                                        mode='fan_out',
                                         nonlinearity='relu')
-            elif isinstance(m, SyncBatchNorm2d) or isinstance(m,
-                                                              nn.BatchNorm2d):
+            elif isinstance(m, SyncBatchNorm2d) or isinstance(
+                    m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
     def _set_stem(self):
-        self.stem = nn.Sequential(nn.Conv2d(3, self.c[0], 3, stride=2,
-                                            padding=1, bias=False),
-                                  BN(self.c[0]),
-                                  nn.ReLU(inplace=True))
+        self.stem = nn.Sequential(
+            nn.Conv2d(3, self.c[0], 3, stride=2, padding=1, bias=False),
+            BN(self.c[0]), nn.ReLU(inplace=True))
         self.curr_size = (self.input_size + 1) // 2
 
     def _set_tail(self):
-        self.last_conv = nn.Sequential(nn.Conv2d(self.c[self.stage], 1024,
-                                                 kernel_size=1, bias=False),
-                                       nn.ReLU(inplace=True))
+        self.last_conv = nn.Sequential(
+            nn.Conv2d(self.c[self.stage], 1024, kernel_size=1, bias=False),
+            nn.ReLU(inplace=True))
 
         self.avgpool = nn.AvgPool2d(self.curr_size)
 
@@ -715,8 +812,8 @@ class ValImageNet(ValNet):
     def _set_aux(self):
         self.aux = nn.Sequential(
             nn.AvgPool2d(kernel_size=5, stride=3),
-            nn.Conv2d(self.c[-1] if self.alloc_plan == "NR" else
-                      self.c[-2], 128, 1),  # hot fix
+            nn.Conv2d(self.c[-1] if self.alloc_plan == "NR" else self.c[-2],
+                      128, 1),  # hot fix
             BN(128),
             nn.ReLU(),
             nn.Conv2d(128, 768, (self.curr_size - 2) // 3),
@@ -739,73 +836,95 @@ def mbnas_t29_x0_84(**kwargs):
 
 
 def mbnas_t47_x1_00(**kwargs):
-    model = ValImageNet([[12, 17], [10, 6], [11], [11], [6, 11, 3], [3], [3],
-                         [12, 10, 7, 1, 4], [11, 10, 4, 2, 7],
-                         [9, 11, 16, 13, 4, 7]],
-                        scale=1.0,
-                        channel_dist=[16, 32, 64, 128, 256],
-                        alloc_space=[0, 0, 2, 2, 2],
-                        cell_plan='mb',
-                        alloc_plan='NR',
-                        **kwargs)
+    model = ValImageNet(
+        [[12, 17], [10, 6], [11], [11], [6, 11, 3], [3], [3],
+         [12, 10, 7, 1, 4], [11, 10, 4, 2, 7], [9, 11, 16, 13, 4, 7]],
+        scale=1.0,
+        channel_dist=[16, 32, 64, 128, 256],
+        alloc_space=[0, 0, 2, 2, 2],
+        cell_plan='mb',
+        alloc_plan='NR',
+        **kwargs)
     return model
 
 
 def supnas_t18_x1_00(**kwargs):
-    model = ValImageNet([9, 17, 13, 19, 19, 19, 6, 0, 19, 19, 19, 3, 0, 3, 0,
-                         0, 19, 19, 0, 19, 4, 7, 1, 6, 6],
-                        scale=1,
-                        channel_dist=[16, 32, 64, 128, 256],
-                        alloc_space=[1, 4, 4, 8, 4],
-                        cell_plan='aligned',
-                        alloc_plan='NR',
-                        **kwargs)
+    model = ValImageNet([
+        9, 17, 13, 19, 19, 19, 6, 0, 19, 19, 19, 3, 0, 3, 0, 0, 19, 19, 0, 19,
+        4, 7, 1, 6, 6
+    ],
+        scale=1,
+        channel_dist=[16, 32, 64, 128, 256],
+        alloc_space=[1, 4, 4, 8, 4],
+        cell_plan='aligned',
+        alloc_plan='NR',
+        **kwargs)
     return model
 
 
 def supnas_t37_x0_92(**kwargs):
-    model = ValImageNet([19, 15, 10, 19, 19, 1, 17, 13, 6, 0, 6, 11, 9, 0, 0,
-                         3, 1, 6, 9, 9, 10, 3, 5, 13, 7],
-                        scale=0.92,
-                        channel_dist=[16, 32, 64, 128, 256],
-                        alloc_space=[1, 4, 4, 8, 4],
-                        cell_plan='aligned',
-                        alloc_plan='NR',
-                        **kwargs)
+    model = ValImageNet([
+        19, 15, 10, 19, 19, 1, 17, 13, 6, 0, 6, 11, 9, 0, 0, 3, 1, 6, 9, 9, 10,
+        3, 5, 13, 7
+    ],
+        scale=0.92,
+        channel_dist=[16, 32, 64, 128, 256],
+        alloc_space=[1, 4, 4, 8, 4],
+        cell_plan='aligned',
+        alloc_plan='NR',
+        **kwargs)
     return model
 
 
 def supnas_t44_x1_00(**kwargs):
-    model = ValImageNet([16, 17, 0, 9, 12, 11, 6, 1, 3, 11, 3, 4, 2, 3, 11, 3,
-                         11, 3, 11, 6, 12, 7, 7, 4, 6],
-                        scale=1,
-                        channel_dist=[16, 32, 64, 128, 256],
-                        alloc_space=[1, 4, 4, 8, 4],
-                        cell_plan='aligned',
-                        alloc_plan='NR',
-                        **kwargs)
+    model = ValImageNet([
+        16, 17, 0, 9, 12, 11, 6, 1, 3, 11, 3, 4, 2, 3, 11, 3, 11, 3, 11, 6, 12,
+        7, 7, 4, 6
+    ],
+        scale=1,
+        channel_dist=[16, 32, 64, 128, 256],
+        alloc_space=[1, 4, 4, 8, 4],
+        cell_plan='aligned',
+        alloc_plan='NR',
+        **kwargs)
     return model
 
 
 def supnas_t66_x1_11(**kwargs):
-    model = ValImageNet([12, 15, 10, 11, 11, 11, 7, 6, 3, 11, 6, 5, 11, 11,
-                         11, 6, 16, 11, 16, 11, 2, 7, 11, 7, 7],
-                        scale=1.11,
-                        channel_dist=[16, 32, 64, 128, 256],
-                        alloc_space=[1, 4, 4, 8, 4],
-                        cell_plan='aligned',
-                        alloc_plan='NR',
-                        **kwargs)
+    model = ValImageNet([
+        12, 15, 10, 11, 11, 11, 7, 6, 3, 11, 6, 5, 11, 11, 11, 6, 16, 11, 16,
+        11, 2, 7, 11, 7, 7
+    ],
+        scale=1.11,
+        channel_dist=[16, 32, 64, 128, 256],
+        alloc_space=[1, 4, 4, 8, 4],
+        cell_plan='aligned',
+        alloc_plan='NR',
+        **kwargs)
     return model
 
 
 def supnas_t100_x0_96(**kwargs):
-    model = ValImageNet([10, 15, 12, 3, 9, 9, 4, 4, 14, 17, 12, 8, 17, 5, 8, 13,
-                         12, 5, 12, 13,  5,  5,  8, 15, 1],
-                        scale=0.96,
-                        channel_dist=[16, 32, 64, 128, 256],
-                        alloc_space=[1, 4, 4, 8, 4],
-                        cell_plan='aligned',
-                        alloc_plan='NR',
-                        **kwargs)
+    model = ValImageNet([
+        10, 15, 12, 3, 9, 9, 4, 4, 14, 17, 12, 8, 17, 5, 8, 13, 12, 5, 12, 13,
+        5, 5, 8, 15, 1
+    ],
+        scale=0.96,
+        channel_dist=[16, 32, 64, 128, 256],
+        alloc_space=[1, 4, 4, 8, 4],
+        cell_plan='aligned',
+        alloc_plan='NR',
+        **kwargs)
+    return model
+
+
+def nas_custom(**kwargs):
+    assert 'alloc_code' in kwargs and 'cell_plan' in kwargs, 'Require alloc_code and cell_plan'
+    if kwargs['cell_plan'] == 'mobileV2':
+        alloc_code = [(op if op != 9 else 19) for op in kwargs['alloc_code']]
+        kwargs.pop('alloc_code')
+    if kwargs['cell_plan'] in ['mobileV2', 'super']:
+        cell_plan = 'aligned'
+        kwargs.pop('cell_plan')
+    model = ValImageNet(alloc_code=alloc_code, cell_plan=cell_plan, **kwargs)
     return model
