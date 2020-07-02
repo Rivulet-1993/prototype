@@ -921,9 +921,9 @@ def supnas_t100_x0_96(**kwargs):
 def nas_custom(**kwargs):
     assert 'alloc_code' in kwargs and 'cell_plan' in kwargs, 'Require alloc_code and cell_plan'
     alloc_code = kwargs['alloc_code']
+    kwargs.pop('alloc_code')
     if kwargs['cell_plan'] == 'mobileV2':
         alloc_code = [(op if op != 9 else 19) for op in kwargs['alloc_code']]
-        kwargs.pop('alloc_code')
     if kwargs['cell_plan'] in ['mobileV2', 'super']:
         cell_plan = 'aligned'
         kwargs.pop('cell_plan')
