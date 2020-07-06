@@ -1,20 +1,25 @@
+import random
 import numpy as np
 import torch
 import torchvision.transforms as transforms
-import torch.nn.functional as F
+import torchvision.transforms.functional as TF
 
 
-class GammaCorrection(object):
+class ToGrayscale(object):
+    def __init__(self, num_output_channels=1):
+        self.num_output_channels = num_output_channels
+
+    def __call__(self, img):
+        return TF.to_grayscale(img, self.num_output_channels)
+
+
+class AdjustGamma(object):
     def __init__(self, gamma, gain=1):
         self.gamma = gamma
         self.gain = gain
 
     def __call__(self, img):
-        # returned image is 3 channel with r = g = b
-        img = F.to_grayscale(img, num_output_channels=3)
-        img = F.adjust_gamma(img, self.gamma, self.gain)
-
-        return img
+        return TF.adjust_gamma(img, self.gamma, self.gain)
 
 
 class Cutout(object):
@@ -44,6 +49,18 @@ class Cutout(object):
         return img
 
 
+class RandomOrientationRotation(object):
+    """
+    Randomly select angles for rotation.
+    """
+    def __init__(self, angles):
+        self.angles = angles
+
+    def __call__(self, img):
+        angle = random.choice(self.angles)
+        return TF.rotate(img, angle)
+
+
 transforms_info_dict = {
     'resize': transforms.Resize,
     'random_resized_crop': transforms.RandomResizedCrop,
@@ -53,8 +70,10 @@ transforms_info_dict = {
     'color_jitter': transforms.ColorJitter,
     'normalize': transforms.Normalize,
     'to_tensor': transforms.ToTensor,
-    'gamma_correction': GammaCorrection,
-    'cutout': Cutout
+    'adjust_gamma': AdjustGamma,
+    'to_grayscale': ToGrayscale,
+    'cutout': Cutout,
+    'random_orientation_rotation': RandomOrientationRotation
 }
 
 
@@ -62,7 +81,7 @@ def build_transformer(cfgs):
     transform_list = []
     for cfg in cfgs:
         transform_type = transforms_info_dict[cfg['type']]
-        kwargs = cfg['kwargs'] if cfg['kwargs'] is not None else []
+        kwargs = cfg['kwargs'] if 'kwargs' in cfg else {}
         transform = transform_type(**kwargs)
         transform_list.append(transform)
     return transforms.Compose(transform_list)

@@ -21,10 +21,18 @@ def build_custom_dataloader(data_type, cfg_dataset):
         transform=transformer,
         read_type=cfg_dataset.read_type
     )
-    # add kwargs of sampler
-    cfg_dataset[data_type]['sampler']['kwargs']['dataset'] = dataset
-    cfg_dataset[data_type]['sampler']['kwargs']['total_iter'] = cfg_dataset['max_iter']
-    cfg_dataset[data_type]['sampler']['kwargs']['last_iter'] = cfg_dataset['last_iter']
+    # initialize kwargs of sampler
+    cfg_dataset[data_type]['sampler']['kwargs'] = {}
+    if cfg_dataset[data_type]['sampler']['type'] == 'Naive':
+        sampler_kwargs = {'dataset': dataset}
+    else:
+        sampler_kwargs = {
+            'dataset': dataset,
+            'batch_size': cfg_dataset['batch_size'],
+            'total_iter': cfg_dataset['max_iter'],
+            'last_iter': cfg_dataset['last_iter']
+        }
+    cfg_dataset[data_type]['sampler']['kwargs'].update(sampler_kwargs)
     # build sampler
     sampler = build_sampler(cfg_dataset[data_type]['sampler'])
     # build dataloader

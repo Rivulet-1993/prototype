@@ -212,7 +212,9 @@ class ClsSolver(BaseSolver):
 
         end = time.time()
 
-        for i, (input, target) in enumerate(self.train_data['loader']):
+        for i, batch in enumerate(self.train_data['loader']):
+            input = batch['image']
+            target = batch['label']
             curr_step = start_step + i
             self.lr_scheduler.step(curr_step)
             # lr_scheduler.get_lr()[0] is the main lr
@@ -233,7 +235,7 @@ class ClsSolver(BaseSolver):
                 input, target_a, target_b, lam = cutmix_data(input, target, self.cutmix)
 
             # forward
-            logits = self.model(input)['logits']
+            logits = self.model(input)
 
             # mixup
             if self.mixup < 1.0 or self.cutmix > 0.0:
@@ -357,11 +359,13 @@ class ClsSolver(BaseSolver):
 
         end = time.time()
         with torch.no_grad():
-            for i, (input, target) in enumerate(self.val_data['loader']):
+            for i, batch in enumerate(self.val_data['loader']):
+                input = batch['image']
+                target = batch['label']
                 input = input.cuda().half() if self.fp16 else input.cuda()
                 target = target.squeeze().view(-1).cuda().long()
                 # compute output
-                logits = self.model(input)['logits']
+                logits = self.model(input)
 
                 # measure accuracy and record loss
                 # / world_size # loss should not be scaled here, it's reduced later!

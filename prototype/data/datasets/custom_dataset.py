@@ -49,7 +49,7 @@ class CustomDataset(BaseDataset):
         self.labels = []
         for line in lines:
             info = json.loads(line)
-            self.metas.append((info['filename'], info['label']))
+            self.metas.append((info['filename'], int(info['label'])))
             self.labels.append(int(info['label']))
 
         super(CustomDataset, self).__init__(read_from=read_type)
@@ -58,7 +58,7 @@ class CustomDataset(BaseDataset):
         return self.num
 
     def __getitem__(self, idx):
-        label = self.metas[idx][1]
+        label = self.labels[idx]
         filename = osp.join(self.root_dir, self.metas[idx][0])
         img_bytes = self.read_file(filename)
         img = pil_loader(img_bytes, filename)
