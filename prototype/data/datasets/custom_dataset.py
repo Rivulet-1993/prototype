@@ -30,7 +30,8 @@ class CustomDataset(BaseDataset):
         - {'filename': 'n01440764/n01440764_10026.JPEG', 'label': 0, 'label_name': 'dog'}
 
     """
-    def __init__(root_dir,
+    def __init__(self,
+                 root_dir,
                  meta_file,
                  transform=None,
                  read_type='mc'):

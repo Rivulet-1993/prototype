@@ -36,4 +36,4 @@ def build_custom_dataloader(data_type, cfg_dataset):
         pin_memory=cfg_dataset['pin_memory'],
         sampler=sampler
     )
-    return {'type':data_type, 'loader': loader}
+    return {'type': data_type, 'loader': loader}
