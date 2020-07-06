@@ -233,7 +233,7 @@ class ClsSolver(BaseSolver):
                 input, target_a, target_b, lam = cutmix_data(input, target, self.cutmix)
 
             # forward
-            logits = self.model(input)
+            logits = self.model(input)['logits']
 
             # mixup
             if self.mixup < 1.0 or self.cutmix > 0.0:
@@ -350,17 +350,6 @@ class ClsSolver(BaseSolver):
             label_list = []
 
         # switch to evaluate mode
-        # if fusion_list is not None:
-        #     model_list = []
-        #     for i in range(len(fusion_list)):
-        #         model_list.append(model_entry(self.config.model))
-        #         model_list[i].cuda()
-        #         model_list[i] = DistModule(model_list[i], args.sync)
-        #         load_state(fusion_list[i], model_list[i])
-        #         model_list[i].eval()
-        #     if fuse_prob:
-        #         softmax = nn.Softmax(dim=1)
-        # else:
         self.model.eval()
 
         criterion = torch.nn.CrossEntropyLoss()
@@ -372,21 +361,7 @@ class ClsSolver(BaseSolver):
                 input = input.cuda().half() if self.fp16 else input.cuda()
                 target = target.squeeze().view(-1).cuda().long()
                 # compute output
-                # if fusion_list is not None:
-                #     output_list = []
-                #     for model_idx in range(len(fusion_list)):
-                #         tmp = model_list[model_idx](input)
-                #         if isinstance(tmp, dict):
-                #             output = tmp['logits']
-                #         else:
-                #             output = tmp
-                #         if fuse_prob:
-                #             output = softmax(output)
-                #         output_list.append(output)
-                #     output = torch.stack(output_list, 0)
-                #     output = torch.mean(output, 0)
-                # else:
-                logits = self.model(input)
+                logits = self.model(input)['logits']
 
                 # measure accuracy and record loss
                 # / world_size # loss should not be scaled here, it's reduced later!

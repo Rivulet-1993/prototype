@@ -45,6 +45,7 @@ class Cutout(object):
 
 
 transforms_info_dict = {
+    'resize': transforms.Resize,
     'random_resized_crop': transforms.RandomResizedCrop,
     'random_horizontal_flip': transforms.RandomHorizontalFlip,
     'ramdom_vertical_flip': transforms.RandomVerticalFlip,

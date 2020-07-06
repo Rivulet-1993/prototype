@@ -175,7 +175,8 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, input):
+        x = input['image']
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -190,7 +191,12 @@ class ResNet(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.fc(x)
 
-        return x
+        output = {
+            'logits': x,
+            'image': input['image']
+        }
+
+        return output
 
 
 def resnet18(**kwargs):
