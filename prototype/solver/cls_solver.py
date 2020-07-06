@@ -18,7 +18,7 @@ from prototype.utils.ema import EMA
 from prototype.model import model_entry
 from prototype.optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD
 from prototype.lr_scheduler import scheduler_entry
-from prototype.data import make_imagenet_train_data, make_imagenet_val_data
+from prototype.data import make_imagenet_train_data, make_imagenet_val_data, build_custom_dataloader
 from prototype.loss_functions import LabelSmoothCELoss
 from prototype.utils.user_analysis_helper import send_info
 
@@ -168,15 +168,15 @@ class ClsSolver(BaseSolver):
         self.config.data.last_iter = self.state['last_iter']
 
         if self.config.data.last_iter < self.config.data.max_iter:
-            self.train_data = make_imagenet_train_data(self.config.data)
+            if self.config.data.get('type', 'imagenet') == 'imagenet':
+                self.train_data = make_imagenet_train_data(self.config.data)
+            else:
+                self.train_data = build_custom_dataloader('train', self.config.data)
+
+        if self.config.data.get('type', 'imagenet') == 'imagenet':
+            self.val_data = make_imagenet_val_data(self.config.data)
         else:
-            self.logger.info(
-                f"======= recovering from the max_iter: {self.config.data.max_iter} =======")
-
-        self.val_data = make_imagenet_val_data(self.config.data)
-
-        self.prototype_info.train_data = self.config.data.train_root
-        self.prototype_info.val_data = self.config.data.val_root
+            self.val_data = build_custom_dataloader('test', self.config.data)
 
     def pre_train(self):
         self.meters = EasyDict()
