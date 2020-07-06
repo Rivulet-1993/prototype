@@ -193,7 +193,8 @@ class ResNet(nn.Module):
 
         output = {
             'logits': x,
-            'image': input['image']
+            'image': input['image'],
+            'filename': input['filename']
         }
 
         return output

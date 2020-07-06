@@ -217,7 +217,8 @@ def count_flops(model, input_shape):
             h = m.register_forward_pre_hook(make_condconv2d_hook(name))
             hooks.append(h)
 
-    input = torch.zeros(*input_shape).cuda()
+    input = {}
+    input['image'] = torch.zeros(*input_shape).cuda()
 
     model.eval()
     with torch.no_grad():
