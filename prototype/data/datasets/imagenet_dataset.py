@@ -1,12 +1,12 @@
 import os.path as osp
 import io
+import json
 from PIL import Image
 
 from .base_dataset import BaseDataset
 
 
 def pil_loader(img_bytes, filepath):
-    # warnings.filterwarnings("ignore", "(Possibly )?corrupt EXIF data", UserWarning)
     buff = io.BytesIO(img_bytes)
     try:
         with Image.open(buff) as img:
@@ -17,10 +17,34 @@ def pil_loader(img_bytes, filepath):
 
 
 class ImageNetDataset(BaseDataset):
-    def __init__(self, root_dir, meta_file, transform=None, read_from='mc'):
+    """
+    ImageNet Dataset.
+
+    Arguments:
+        - root_dir (:obj:`str`): root directory of dataset
+        - meta_file (:obj:`str`): name of meta file
+        - transform (list of ``Transform`` objects): list of transforms
+        - read_type (:obj:`str`): read type from the original meta_file
+        - evaluator (:obj:`Evaluator`): evaluate to get metrics
+
+    Metafile example::
+        "n01440764/n01440764_10026.JPEG 0\n"
+    """
+    def __init__(self,
+                 root_dir,
+                 meta_file,
+                 transform=None,
+                 read_from='mc',
+                 evaluator=None):
+
+        super(ImageNetDataset, self).__init__()
+
         self.root_dir = root_dir
+        self.meta_file = meta_file
         self.read_from = read_from
         self.transform = transform
+        self.evaluator = evaluator
+        self.initialized = False
 
         with open(meta_file) as f:
             lines = f.readlines()
@@ -28,23 +52,40 @@ class ImageNetDataset(BaseDataset):
         self.num = len(lines)
         self.metas = []
         for line in lines:
-            path, cls = line.rstrip().split()
-            self.metas.append((path, int(cls)))
-
-        super(ImageNetDataset, self).__init__(read_from=read_from)
+            filename, label = line.rstrip().split()
+            self.metas.append((filename, int(label)))
 
     def __len__(self):
         return self.num
 
     def __getitem__(self, idx):
-        filepath = osp.join(self.root_dir, self.metas[idx][0])
-        cls = self.metas[idx][1]
-        img_bytes = self.read_file(filepath)
+        filename = osp.join(self.root_dir, self.metas[idx][0])
+        label = self.metas[idx][1]
+        img_bytes = self.read_file(filename)
+        img = pil_loader(img_bytes, filename)
 
-        if self.transform is None:
-            return img_bytes, cls
+        if self.transform is not None:
+            img = self.transform(img)
 
-        img = pil_loader(img_bytes, filepath)
-        img = self.transform(img)
+        item = {
+            'image': img,
+            'label': label,
+            'image_id': idx,
+            'filename': filename
+        }
+        return item
 
-        return img, cls
+    def dump(self, writer, output):
+        filename = output['filename']
+        image_id = output['image_id']
+        prediction = self.tensor2numpy(output['prediction'])
+        label = self.tensor2numpy(output['label'])
+        for _idx in range(len(filename)):
+            res = {
+                'filename': filename[_idx],
+                'image_id': int(image_id[_idx]),
+                'prediction': int(prediction[_idx]),
+                'label': int(label[_idx])
+            }
+            writer.write(json.dumps(res, ensure_ascii=False) + '\n')
+        writer.flush()

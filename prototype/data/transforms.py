@@ -1,11 +1,14 @@
 import random
 import numpy as np
+from PIL import ImageFilter
 import torch
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as TF
 
 
 class ToGrayscale(object):
+    """Convert image to grayscale version of image."""
+
     def __init__(self, num_output_channels=1):
         self.num_output_channels = num_output_channels
 
@@ -14,6 +17,8 @@ class ToGrayscale(object):
 
 
 class AdjustGamma(object):
+    """Perform gamma correction on an image."""
+
     def __init__(self, gamma, gain=1):
         self.gamma = gamma
         self.gain = gain
@@ -22,7 +27,33 @@ class AdjustGamma(object):
         return TF.adjust_gamma(img, self.gamma, self.gain)
 
 
+class TwoCropsTransform:
+    """Take two random crops of one image as the query and key."""
+
+    def __init__(self, base_transform):
+        self.base_transform = base_transform
+
+    def __call__(self, x):
+        q = self.base_transform(x)
+        k = self.base_transform(x)
+        return torch.cat([q, k], dim=0)
+
+
+class GaussianBlur(object):
+    """Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709"""
+
+    def __init__(self, sigma=[.1, 2.]):
+        self.sigma = sigma
+
+    def __call__(self, x):
+        sigma = random.uniform(self.sigma[0], self.sigma[1])
+        x = x.filter(ImageFilter.GaussianBlur(radius=sigma))
+        return x
+
+
 class Cutout(object):
+    """Randomly mask out one or more patches from an image."""
+
     def __init__(self, n_holes=2, length=32, prob=0.5):
         self.n_holes = n_holes
         self.length = length
@@ -50,9 +81,8 @@ class Cutout(object):
 
 
 class RandomOrientationRotation(object):
-    """
-    Randomly select angles for rotation.
-    """
+    """Randomly select angles for rotation."""
+
     def __init__(self, angles):
         self.angles = angles
 
@@ -73,7 +103,8 @@ transforms_info_dict = {
     'adjust_gamma': AdjustGamma,
     'to_grayscale': ToGrayscale,
     'cutout': Cutout,
-    'random_orientation_rotation': RandomOrientationRotation
+    'random_orientation_rotation': RandomOrientationRotation,
+    'gaussian_blur': GaussianBlur
 }
 
 

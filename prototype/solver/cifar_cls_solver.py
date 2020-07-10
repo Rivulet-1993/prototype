@@ -6,7 +6,7 @@ from torchvision.datasets import CIFAR10, CIFAR100
 from .cls_solver import ClsSolver
 from prototype.utils.dist import link_dist
 from prototype.data.sampler import DistributedGivenIterationSampler, DistributedSampler
-from prototype.data.autoaugment import CIFAR10Policy, Cutout
+from prototype.data.auto_augmentation import CIFAR10Policy, Cutout
 
 
 class CifarClsSolver(ClsSolver):

@@ -6,14 +6,16 @@ import pprint
 import time
 import datetime
 import torch
+import json
 import linklink as link
+import torch.nn.functional as F
 
 from .base_solver import BaseSolver
 from prototype.config import parse_config
-from prototype.utils.dist import link_dist, DistModule
+from prototype.utils.dist import link_dist, DistModule, broadcast_object
 from prototype.utils.misc import makedir, create_logger, get_logger, count_params, count_flops, \
     param_group_all, AverageMeter, accuracy, load_state_model, load_state_optimizer, mixup_data, \
-    mix_criterion, detailed_metrics, modify_state, cutmix_data
+    mix_criterion, modify_state, cutmix_data
 from prototype.utils.ema import EMA
 from prototype.model import model_entry
 from prototype.optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD
@@ -47,8 +49,10 @@ class ClsSolver(BaseSolver):
         self.path.root_path = os.path.dirname(self.config_file)
         self.path.save_path = os.path.join(self.path.root_path, 'checkpoints')
         self.path.event_path = os.path.join(self.path.root_path, 'events')
+        self.path.result_path = os.path.join(self.path.root_path, 'results')
         makedir(self.path.save_path)
         makedir(self.path.event_path)
+        makedir(self.path.result_path)
         # tb_logger
         if self.dist.rank == 0:
             self.tb_logger = SummaryWriter(self.path.event_path)
@@ -66,8 +70,6 @@ class ClsSolver(BaseSolver):
         else:
             self.state = {}
             self.state['last_iter'] = 0
-        # extra metrics
-        self.detailed_metrics = self.config.get('detailed_metrics', False)
         # others
         torch.backends.cudnn.benchmark = True
 
@@ -206,12 +208,9 @@ class ClsSolver(BaseSolver):
     def train(self):
 
         self.pre_train()
-
         total_step = len(self.train_data['loader'])
         start_step = self.state['last_iter'] + 1
-
         end = time.time()
-
         for i, batch in enumerate(self.train_data['loader']):
             input = batch['image']
             target = batch['label']
@@ -219,31 +218,25 @@ class ClsSolver(BaseSolver):
             self.lr_scheduler.step(curr_step)
             # lr_scheduler.get_lr()[0] is the main lr
             current_lr = self.lr_scheduler.get_lr()[0]
-
             # measure data loading time
             self.meters.data_time.update(time.time() - end)
-
             # transfer input to gpu
             target = target.squeeze().cuda().long()
             input = input.cuda().half() if self.fp16 else input.cuda()
-
             # mixup
             if self.mixup < 1.0:
                 input, target_a, target_b, lam = mixup_data(input, target, self.mixup)
             # cutmix
             if self.cutmix > 0.0:
                 input, target_a, target_b, lam = cutmix_data(input, target, self.cutmix)
-
             # forward
             logits = self.model(input)
-
             # mixup
             if self.mixup < 1.0 or self.cutmix > 0.0:
                 loss = mix_criterion(self.criterion, logits, target_a, target_b, lam)
                 loss /= self.dist.world_size
             else:
                 loss = self.criterion(logits, target) / self.dist.world_size
-
             # measure accuracy and record loss
             prec1, prec5 = accuracy(logits, target, topk=(1, 5))
 
@@ -255,8 +248,8 @@ class ClsSolver(BaseSolver):
             self.meters.top1.reduce_update(reduced_prec1)
             self.meters.top5.reduce_update(reduced_prec5)
 
+            # compute and update gradient
             self.optimizer.zero_grad()
-
             if FusedFP16SGD is not None and isinstance(self.optimizer, FusedFP16SGD):
                 self.optimizer.backward(loss)
                 self.model.sync_gradients()
@@ -278,23 +271,18 @@ class ClsSolver(BaseSolver):
             # EMA
             if self.ema is not None:
                 self.ema.step(self.model, curr_step=curr_step)
-
             # measure elapsed time
             self.meters.batch_time.update(time.time() - end)
 
+            # training logger
             if curr_step % self.config.print_freq == 0 and self.dist.rank == 0:
-                self.tb_logger.add_scalar(
-                    'loss_train', self.meters.losses.avg, curr_step)
-                self.tb_logger.add_scalar(
-                    'acc1_train', self.meters.top1.avg, curr_step)
-                self.tb_logger.add_scalar(
-                    'acc5_train', self.meters.top5.avg, curr_step)
+                self.tb_logger.add_scalar('loss_train', self.meters.losses.avg, curr_step)
+                self.tb_logger.add_scalar('acc1_train', self.meters.top1.avg, curr_step)
+                self.tb_logger.add_scalar('acc5_train', self.meters.top5.avg, curr_step)
                 self.tb_logger.add_scalar('lr', current_lr, curr_step)
-                remain_secs = (total_step - curr_step) * \
-                    self.meters.batch_time.avg
+                remain_secs = (total_step - curr_step) * self.meters.batch_time.avg
                 remain_time = datetime.timedelta(seconds=round(remain_secs))
-                finish_time = time.strftime(
-                    "%Y-%m-%d %H:%M:%S", time.localtime(time.time()+remain_secs))
+                finish_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()+remain_secs))
                 log_msg = f'Iter: [{curr_step}/{total_step}]\t' \
                     f'Time {self.meters.batch_time.val:.3f} ({self.meters.batch_time.avg:.3f})\t' \
                     f'Data {self.meters.data_time.val:.3f} ({self.meters.data_time.avg:.3f})\t' \
@@ -303,145 +291,86 @@ class ClsSolver(BaseSolver):
                     f'Prec@5 {self.meters.top5.val:.3f} ({self.meters.top5.avg:.3f})\t' \
                     f'LR {current_lr:.4f}\t' \
                     f'Remaining Time {remain_time} ({finish_time})'
-
                 self.logger.info(log_msg)
 
+            # testing logger
             if curr_step > 0 and curr_step % self.config.val_freq == 0:
-                val_loss, prec1, prec5 = self.evaluate()
+                prec1, prec5 = self.evaluate()
                 if self.ema is not None:
                     self.ema.load_ema(self.model)
-                    val_loss_ema, prec1_ema, prec5_ema = self.evaluate()
+                    prec1_ema, prec5_ema = self.evaluate()
                     self.ema.recover(self.model)
                     if self.dist.rank == 0:
-                        self.tb_logger.add_scalars(
-                            'loss_val', {'ema': val_loss_ema}, curr_step)
-                        self.tb_logger.add_scalars(
-                            'acc1_val', {'ema': prec1_ema}, curr_step)
-                        self.tb_logger.add_scalars(
-                            'acc5_val', {'ema': prec5_ema}, curr_step)
+                        self.tb_logger.add_scalars('acc1_val', {'ema': prec1_ema}, curr_step)
+                        self.tb_logger.add_scalars('acc5_val', {'ema': prec5_ema}, curr_step)
 
                 if self.dist.rank == 0:
-                    self.tb_logger.add_scalar('loss_val', val_loss, curr_step)
                     self.tb_logger.add_scalar('acc1_val', prec1, curr_step)
                     self.tb_logger.add_scalar('acc5_val', prec5, curr_step)
-
-                if self.dist.rank == 0:
                     if self.config.save_many:
                         ckpt_name = f'{self.path.save_path}/ckpt_{curr_step}.pth.tar'
                     else:
                         ckpt_name = f'{self.path.save_path}/ckpt.pth.tar'
-
                     self.state['model'] = self.model.state_dict()
                     self.state['optimizer'] = self.optimizer.state_dict()
                     self.state['last_iter'] = curr_step
                     if self.ema is not None:
                         self.state['ema'] = self.ema.state_dict()
-
                     torch.save(self.state, ckpt_name)
 
             end = time.time()
 
-    def evaluate(self, fusion_list=None, fuse_prob=False):
-        batch_time = AverageMeter(0)
-        losses = AverageMeter(0)
-        top1 = AverageMeter(0)
-        top5 = AverageMeter(0)
-
-        if self.detailed_metrics:
-            pred_list = []
-            label_list = []
-
-        # switch to evaluate mode
+    @torch.no_grad()
+    def evaluate(self):
         self.model.eval()
+        res_file = os.path.join(self.path.result_path, f'results.txt.rank{self.dist.rank}')
+        writer = open(res_file, 'w')
+        for batch_idx, batch in enumerate(self.val_data['loader']):
+            input = batch['image']
+            label = batch['label']
+            input = input.cuda().half() if self.fp16 else input.cuda()
+            label = label.squeeze().view(-1).cuda().long()
+            # compute output
+            logits = self.model(input)
+            scores = F.softmax(logits, dim=1)
+            # compute prediction
+            _, preds = logits.data.topk(k=1, dim=1)
+            preds = preds.view(-1)
+            # update batch information
+            batch.update({'prediction': preds})
+            if self.config.data.type == 'custom':
+                batch.update({'score': scores})
+            self.val_data['loader'].dataset.dump(writer, batch)
 
-        criterion = torch.nn.CrossEntropyLoss()
-        val_iter = len(self.val_data['loader'])
-
-        end = time.time()
-        with torch.no_grad():
-            for i, batch in enumerate(self.val_data['loader']):
-                input = batch['image']
-                target = batch['label']
-                input = input.cuda().half() if self.fp16 else input.cuda()
-                target = target.squeeze().view(-1).cuda().long()
-                # compute output
-                logits = self.model(input)
-
-                # measure accuracy and record loss
-                # / world_size # loss should not be scaled here, it's reduced later!
-                loss = criterion(logits, target)
-                prec1, prec5 = accuracy(logits.data, target, topk=(1, 5))
-
-                if self.detailed_metrics:
-                    _, pred = logits.data.topk(k=1, dim=1)
-                    pred = pred.view(-1)
-                    # gather results
-                    gather_buffer = torch.zeros(
-                        pred.size(0) * self.dist.world_size, device=pred.device, dtype=pred.dtype)
-                    link.allgather(gather_buffer, pred)
-                    pred_list.extend(gather_buffer.cpu().numpy())
-                    link.allgather(gather_buffer, target)
-                    label_list.extend(gather_buffer.cpu().numpy())
-
-                num = input.size(0)
-                losses.update(loss.item(), num)
-                top1.update(prec1.item(), num)
-                top5.update(prec5.item(), num)
-
-                # measure elapsed time
-                batch_time.update(time.time() - end)
-                end = time.time()
-
-                if (i+1) % self.config.print_freq == 0:
-                    self.logger.info(f'Test: [{i+1}/{val_iter}]\tTime {batch_time.val:.3f} ({batch_time.avg:.3f})')
-
-        # gather final results
-        total_num = torch.Tensor([losses.count])
-        loss_sum = torch.Tensor([losses.avg*losses.count])
-        top1_sum = torch.Tensor([top1.avg*top1.count])
-        top5_sum = torch.Tensor([top5.avg*top5.count])
-        link.allreduce(total_num)
-        link.allreduce(loss_sum)
-        link.allreduce(top1_sum)
-        link.allreduce(top5_sum)
-        final_loss = loss_sum.item()/total_num.item()
-        final_top1 = top1_sum.item()/total_num.item()
-        final_top5 = top5_sum.item()/total_num.item()
-
-        self.logger.info(f' * Prec@1 {final_top1:.3f}\tPrec@5 {final_top5:.3f}\t\
-            Loss {final_loss:.3f}\ttotal_num={total_num.item()}')
-
-        if self.detailed_metrics:
-            class_precision, class_recall, class_f1, precision_avg, recall_avg, f1_avg = detailed_metrics(
-                pred_list, label_list)
-            self.logger.info(f' * Average Precision {precision_avg*100.:.3f}\tAverage Recall {recall_avg*100.:.3f}\t\
-                Average F1-score {f1_avg*100.:.3f}')
-            for idx, (_precision, _recall, _f1) in enumerate(zip(class_precision, class_recall, class_f1)):
-                self.logger.info(f' * Class-{idx}: Precision {_precision*100.:.3f}, Recall {_recall*100.:.3f}, \
-                    F1-score {_f1*100.:.3f}')
-
+        writer.close()
+        link.barrier()
+        if self.dist.rank == 0:
+            metrics = self.val_data['loader'].dataset.evaluate(res_file)
+            self.logger.info(json.dumps(metrics, indent=2))
+        else:
+            metrics = {}
+        link.barrier()
+        # broadcast metrics to other process
+        metrics = broadcast_object(metrics)
+        # change into train mode
         self.model.train()
-
-        return final_loss, final_top1, final_top5
+        return metrics
 
 
 @link_dist
 def main():
-    parser = argparse.ArgumentParser(description='base solver')
+    parser = argparse.ArgumentParser(description='Classification Solver')
     parser.add_argument('--config', required=True, type=str)
     parser.add_argument('--recover', type=str, default='')
     parser.add_argument('--evaluate', action='store_true')
 
     args = parser.parse_args()
-
     # build or recover solver
     solver = ClsSolver(args.config, recover=args.recover)
-
     # evaluate or train
     if args.evaluate:
         if not args.recover:
-            solver.logger.warn(
-                'evaluating without recovring any solver checkpoints')
+            solver.logger.warn('Evaluating without recovring any solver checkpoints.')
         solver.evaluate()
         if solver.ema is not None:
             solver.ema.load_ema(solver.model)

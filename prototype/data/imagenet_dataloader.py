@@ -6,8 +6,8 @@ from .datasets import ImageNetDataset
 from .pipelines import ImageNetTrainPipe, ImageNetValPipe, ImageNetTrainPipeV2, ImageNetValPipeV2
 from .nvidia_dali_dataloader import DaliDataLoader, dali_default_collate
 from .sampler import DistributedGivenIterationSampler, DistributedEpochSampler, DistributedSampler
-from .autoaugment import ImageNetPolicy, Cutout  # noqa: F401
-from .moco_transform import TwoCropsTransform, GaussianBlur
+from .auto_augmentation import ImageNetPolicy, Cutout  # noqa: F401
+from .transforms import TwoCropsTransform, GaussianBlur
 from prototype.utils.misc import get_logger
 
 try:

@@ -18,52 +18,81 @@ def pil_loader(img_bytes, filepath):
 
 class CustomDataset(BaseDataset):
     """
-    Custom Dataset using self-defined setting.
+    Custom Dataset.
 
     Arguments:
         - root_dir (:obj:`str`): root directory of dataset
         - meta_file (:obj:`str`): name of meta file
         - transform (list of ``Transform`` objects): list of transforms
-        - read_type (:obj:`str`): read type from the original meta_file
+        - read_from (:obj:`str`): read type from the original meta_file
+        - evaluator (:obj:`Evaluator`): evaluate to get metrics
 
-    Example of meta_file in json type:
-        - {'filename': 'n01440764/n01440764_10026.JPEG', 'label': 0, 'label_name': 'dog'}
-
+    Metafile example::
+        "{'filename': 'n01440764/n01440764_10026.JPEG', 'label': 0, 'label_name': 'dog'}\n"
     """
     def __init__(self,
                  root_dir,
                  meta_file,
                  transform=None,
-                 read_type='mc'):
+                 read_from='mc',
+                 evaluator=None):
+
+        super(CustomDataset, self).__init__()
 
         self.root_dir = root_dir
         self.meta_file = meta_file
+        self.read_from = read_from
         self.transform = transform
-        self.read_type = read_type
+        self.evaluator = evaluator
+        self.initialized = False
 
         with open(meta_file) as f:
             lines = f.readlines()
 
         self.num = len(lines)
         self.metas = []
-        self.labels = []
         for line in lines:
             info = json.loads(line)
-            self.metas.append((info['filename'], int(info['label'])))
-            self.labels.append(int(info['label']))
-
-        super(CustomDataset, self).__init__(read_from=read_type)
+            self.metas.append((info['filename'], int(info['label'], info['label_name'])))
 
     def __len__(self):
         return self.num
 
     def __getitem__(self, idx):
-        label = self.labels[idx]
         filename = osp.join(self.root_dir, self.metas[idx][0])
+        label = self.metas[idx][1]
+        label_name = self.metas[idx](2)
         img_bytes = self.read_file(filename)
         img = pil_loader(img_bytes, filename)
 
         if self.transform is not None:
             img = self.transform(img)
 
-        return {'image': img, 'label': label, 'filename': filename}
+        item = {
+            'image': img,
+            'label': label,
+            'image_id': idx,
+            'filename': filename,
+            'label_name': label_name
+        }
+
+        return item
+
+    def dump(self, writer, output):
+        filename = output['filename']
+        image_id = output['image_id']
+        label_name = output['label_name']
+        prediction = self.tensor2numpy(output['prediction'])
+        score = self.tensor2numpy(output['score'])
+        label = self.tensor2numpy(output['label'])
+        for _idx in range(len(filename)):
+            res = {
+                'filename': filename[_idx],
+                'image_id': int(image_id[_idx]),
+                'label_name': label_name[_idx],
+                'prediction': int(prediction[_idx]),
+                'score': float(score[_idx]),
+                'label': int(label[_idx])
+            }
+            writer.write(json.dumps(res, ensure_ascii=False) + '\n')
+        writer.flush()
