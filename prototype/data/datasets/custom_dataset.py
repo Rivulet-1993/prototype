@@ -2,7 +2,6 @@ from PIL import Image
 import json
 import io
 import os.path as osp
-
 from .base_dataset import BaseDataset
 
 
@@ -30,14 +29,7 @@ class CustomDataset(BaseDataset):
     Metafile example::
         "{'filename': 'n01440764/n01440764_10026.JPEG', 'label': 0, 'label_name': 'dog'}\n"
     """
-    def __init__(self,
-                 root_dir,
-                 meta_file,
-                 transform=None,
-                 read_from='mc',
-                 evaluator=None):
-
-        super(CustomDataset, self).__init__()
+    def __init__(self, root_dir, meta_file, transform=None, read_from='mc', evaluator=None):
 
         self.root_dir = root_dir
         self.meta_file = meta_file
@@ -53,7 +45,13 @@ class CustomDataset(BaseDataset):
         self.metas = []
         for line in lines:
             info = json.loads(line)
-            self.metas.append((info['filename'], int(info['label'], info['label_name'])))
+            self.metas.append((info['filename'], int(info['label']), info['label_name']))
+
+        super(CustomDataset, self).__init__(root_dir=root_dir,
+                                            meta_file=meta_file,
+                                            read_from=read_from,
+                                            transform=transform,
+                                            evaluator=evaluator)
 
     def __len__(self):
         return self.num
@@ -61,7 +59,7 @@ class CustomDataset(BaseDataset):
     def __getitem__(self, idx):
         filename = osp.join(self.root_dir, self.metas[idx][0])
         label = self.metas[idx][1]
-        label_name = self.metas[idx](2)
+        label_name = self.metas[idx][2]
         img_bytes = self.read_file(filename)
         img = pil_loader(img_bytes, filename)
 
@@ -91,7 +89,7 @@ class CustomDataset(BaseDataset):
                 'image_id': int(image_id[_idx]),
                 'label_name': label_name[_idx],
                 'prediction': int(prediction[_idx]),
-                'score': float(score[_idx]),
+                'score': [float(s) for s in score[_idx]],
                 'label': int(label[_idx])
             }
             writer.write(json.dumps(res, ensure_ascii=False) + '\n')

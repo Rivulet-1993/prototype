@@ -293,20 +293,24 @@ class ClsSolver(BaseSolver):
                     f'Remaining Time {remain_time} ({finish_time})'
                 self.logger.info(log_msg)
 
-            # testing logger
+            # testing during training
             if curr_step > 0 and curr_step % self.config.val_freq == 0:
-                prec1, prec5 = self.evaluate()
+                metrics = self.evaluate()
                 if self.ema is not None:
                     self.ema.load_ema(self.model)
-                    prec1_ema, prec5_ema = self.evaluate()
+                    ema_metrics = self.evaluate()
                     self.ema.recover(self.model)
-                    if self.dist.rank == 0:
-                        self.tb_logger.add_scalars('acc1_val', {'ema': prec1_ema}, curr_step)
-                        self.tb_logger.add_scalars('acc5_val', {'ema': prec5_ema}, curr_step)
+                    if self.dist.rank == 0 and self.config.data.test.evaluator.type == 'imagenet':
+                        self.tb_logger.add_scalars('acc1_val', {'ema': ema_metrics.metric['top1']}, curr_step)
+                        self.tb_logger.add_scalars('acc5_val', {'ema': ema_metrics.metric['top5']}, curr_step)
 
+                # testing logger
+                if self.dist.rank == 0 and self.config.data.test.evaluator.type == 'imagenet':
+                    self.tb_logger.add_scalar('acc1_val', metrics.metric['top1'], curr_step)
+                    self.tb_logger.add_scalar('acc5_val', metrics.metric['top5'], curr_step)
+
+                # save ckpt
                 if self.dist.rank == 0:
-                    self.tb_logger.add_scalar('acc1_val', prec1, curr_step)
-                    self.tb_logger.add_scalar('acc5_val', prec5, curr_step)
                     if self.config.save_many:
                         ckpt_name = f'{self.path.save_path}/ckpt_{curr_step}.pth.tar'
                     else:
@@ -338,21 +342,20 @@ class ClsSolver(BaseSolver):
             preds = preds.view(-1)
             # update batch information
             batch.update({'prediction': preds})
-            if self.config.data.type == 'custom':
-                batch.update({'score': scores})
+            batch.update({'score': scores})
+            # save prediction information
             self.val_data['loader'].dataset.dump(writer, batch)
 
         writer.close()
         link.barrier()
         if self.dist.rank == 0:
             metrics = self.val_data['loader'].dataset.evaluate(res_file)
-            self.logger.info(json.dumps(metrics, indent=2))
+            self.logger.info(json.dumps(metrics.metric, indent=2))
         else:
             metrics = {}
         link.barrier()
         # broadcast metrics to other process
         metrics = broadcast_object(metrics)
-        # change into train mode
         self.model.train()
         return metrics
 

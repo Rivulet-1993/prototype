@@ -113,7 +113,7 @@ class BaseDataset(Dataset):
                 for line_idx, line in enumerate(fin):
                     merged_fd.write(line)
         merged_fd.close()
-        return merged_fd
+        return merged_file
 
     def evaluate(self, res_file):
         """
@@ -121,8 +121,8 @@ class BaseDataset(Dataset):
             - res_file (:obj:`str`): filename of result
         """
         prefix = res_file.rstrip('0123456789')
-        res_file = self.merge(prefix)
-        metrics = self.evaluator.eval(res_file) if self.evaluator else {}
+        merged_res_file = self.merge(prefix)
+        metrics = self.evaluator.eval(merged_res_file) if self.evaluator else {}
         return metrics
 
     def tensor2numpy(self, x):

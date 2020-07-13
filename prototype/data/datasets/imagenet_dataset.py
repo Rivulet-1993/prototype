@@ -30,14 +30,7 @@ class ImageNetDataset(BaseDataset):
     Metafile example::
         "n01440764/n01440764_10026.JPEG 0\n"
     """
-    def __init__(self,
-                 root_dir,
-                 meta_file,
-                 transform=None,
-                 read_from='mc',
-                 evaluator=None):
-
-        super(ImageNetDataset, self).__init__()
+    def __init__(self, root_dir, meta_file, transform=None, read_from='mc', evaluator=None):
 
         self.root_dir = root_dir
         self.meta_file = meta_file
@@ -54,6 +47,12 @@ class ImageNetDataset(BaseDataset):
         for line in lines:
             filename, label = line.rstrip().split()
             self.metas.append((filename, int(label)))
+
+        super(ImageNetDataset, self).__init__(root_dir=root_dir,
+                                              meta_file=meta_file,
+                                              read_from=read_from,
+                                              transform=transform,
+                                              evaluator=evaluator)
 
     def __len__(self):
         return self.num

@@ -2,8 +2,8 @@ import math
 import json
 import numpy as np
 from sklearn import metrics
-
-from .evaluator import Evaluator, Metric
+from .base_evaluator import Evaluator, Metric
+from prototype.utils.misc import get_logger
 
 
 class CustomMetric(Metric):
@@ -39,16 +39,19 @@ class CustomEvaluator(Evaluator):
     def __init__(self,
                  key_metric,
                  defect_classes,
-                 recall_thres=[1.0, 0.95, 0.90, 0.8, 0.7],
-                 tpr_thres=[0.99, 0.98, 0.97, 0.95, 0.9]):
+                 recall_thres,
+                 tpr_thres):
         super(CustomEvaluator, self).__init__()
-        # fpr@0.95recall'
         self.key_metric = key_metric
         self.recall_thres = recall_thres
         self.tpr_thres = tpr_thres
         self.defect_classes = defect_classes
+        self.logger = get_logger(__name__)
 
     def load_res(self, res_file):
+        """
+        Load results from file.
+        """
         res_dict = {}
         with open(res_file) as f:
             lines = f.readlines()
@@ -59,7 +62,6 @@ class CustomEvaluator(Evaluator):
                     res_dict[key] = [info[key]]
                 else:
                     res_dict[key].append(info[key])
-
         return res_dict
 
     def calculate_recall_tpr(self, sorted_labels):
@@ -91,8 +93,8 @@ class CustomEvaluator(Evaluator):
         total_neg_nums = len(sorted_labels) - total_pos_nums
 
         target_recall_nums = [math.ceil(i * total_pos_nums) for i in self.recall_thres]
-        print("recall thres: ", self.recall_thres)
-        print("target recall nums: ", target_recall_nums)
+        self.logger.info('recall thres: {}'.format(self.recall_thres))
+        self.logger.info('target recall nums: {}'.format(target_recall_nums))
         recall_precsion_vecs = []
         fnr_fpr_vecs = []
         for target_num in target_recall_nums:
@@ -121,7 +123,7 @@ class CustomEvaluator(Evaluator):
             # fpr@recall
             ret_metrics['fpr@{}recall'.format(recall_precsion_vecs[i][0])] = fnr_fpr_vecs[i][1]
 
-            print(
+            self.logger.info(
                 "recall: {:.5f}, fpr: {:.5f}, score: {:.5f}".format(
                     recall_precsion_vecs[i][0],
                     fnr_fpr_vecs[i][1],
@@ -147,14 +149,11 @@ class CustomEvaluator(Evaluator):
         fpr, tpr, _ = metrics.roc_curve(neg_pos_labels, all_pos_probs, pos_label=1)
         auc = metrics.auc(fpr, tpr)
         ret_metrics['auc'] = auc
-
         # ap
         ap = metrics.average_precision_score(neg_pos_labels, all_pos_probs)
         ret_metrics["AP"] = ap
-
         # fpr recall
         ret_metrics.update(self.calculate_recall_fpr(sorted_labels, sorted_probs))
-
         # tpr recall
         ret_metrics.update(self.calculate_recall_tpr(sorted_labels))
 
@@ -169,11 +168,3 @@ class CustomEvaluator(Evaluator):
         metric.set_cmp_key(self.key_metric)
 
         return metric
-
-
-if __name__ == "__main__":
-    pass
-    # res_file = '/mnt/lustre/shaoqingbin/project/railc4cls/exp_c4/wangqian_res18_e4_0527_cp/res_v3+/results.all.tmp'
-    # evaluator = CustomEvaluator(key_metric='fp@0.95recall', defect_classes=[3, 4])
-    # metric = evaluator.eval(res_file)
-    # print(metric)

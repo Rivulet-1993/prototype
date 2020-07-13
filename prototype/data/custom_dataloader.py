@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 from .datasets import CustomDataset
 from .transforms import build_transformer
 from .sampler import build_sampler
+from .metrics import build_evaluator
 
 
 def build_custom_dataloader(data_type, cfg_dataset):
@@ -14,12 +15,17 @@ def build_custom_dataloader(data_type, cfg_dataset):
     assert data_type in cfg_dataset
     # build transformer
     transformer = build_transformer(cfg_dataset[data_type]['transforms'])
+    # build evaluator
+    evaluator = None
+    if data_type == 'test' and cfg_dataset[data_type].get('evaluator', None):
+        evaluator = build_evaluator(cfg_dataset[data_type]['evaluator'])
     # build dataset
     dataset = CustomDataset(
         root_dir=cfg_dataset[data_type]['root_dir'],
         meta_file=cfg_dataset[data_type]['meta_file'],
         transform=transformer,
-        read_type=cfg_dataset.read_type
+        read_from=cfg_dataset.read_from,
+        evaluator=evaluator,
     )
     # initialize kwargs of sampler
     cfg_dataset[data_type]['sampler']['kwargs'] = {}

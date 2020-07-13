@@ -36,7 +36,7 @@ config:
 
     data:
         type: custom
-        read_type: mc
+        read_from: mc
         batch_size: 64
         num_workers: 2
         pin_memory: True
@@ -94,7 +94,20 @@ config:
                   kwargs:
                       mean: [0.485, 0.456, 0.406]
                       std: [0.229, 0.224, 0.225]
+            
+            #evaluator:
+            #    type: imagenet
+            #    kwargs:
+            #        topk: [1, 5]
+
+            evaluator:
+                type: custom
+                kwargs:
+                    key_metric: fp@0.95recall
+                    defect_classes: [3, 4]
+                    recall_thres: [1.0, 0.95, 0.90, 0.8, 0.7]
+                    tpr_thres: [0.99, 0.98, 0.97, 0.95, 0.9]
 
     print_freq: 10
-    val_freq: 100
+    val_freq: 20
     save_many: False

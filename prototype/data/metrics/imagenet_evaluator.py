@@ -2,40 +2,42 @@ import json
 import yaml
 import torch
 import numpy as np
-from .evaluator import Evaluator, Metric
+from .base_evaluator import Evaluator, Metric
 
 
 class ClsMetric(Metric):
-    def __init__(self, top1=0., top5=0.):
-        self.top1 = top1
-        self.top5 = top5
+    def __init__(self, metric_dict={}):
+        self.metric = metric_dict
 
     def __str__(self):
-        return f'top1={self.top1} top5={self.top5}'
+        return f'metric={self.metric} key={self.cmp_key}'
 
     def __eq__(self, other):
-        return self.top1 == other.top1
+        return self.metric[self.cmp_key] == other.metric[self.cmp_key]
 
     def __ne__(self, other):
-        return self.top1 != other.top1
+        return self.metric[self.cmp_key] != other.metric[self.cmp_key]
 
     def __gt__(self, other):
-        return self.top1 > other.top1
+        return self.metric[self.cmp_key] < other.metric[self.cmp_key]
 
     def __lt__(self, other):
-        return self.top1 < other.top1
+        return self.metric[self.cmp_key] > other.metric[self.cmp_key]
 
     def __ge__(self, other):
-        return self.top1 >= other.top1
+        return self.metric[self.cmp_key] <= other.metric[self.cmp_key]
 
     def __le__(self, other):
-        return self.top1 <= other.top1
+        return self.metric[self.cmp_key] >= other.metric[self.cmp_key]
+
+    def set_cmp_key(self, key):
+        self.cmp_key = key
 
 
 class ImageNetEvaluator(Evaluator):
-    def __init__(self):
+    def __init__(self, topk=[1, 5]):
         super(ImageNetEvaluator, self).__init__()
-        self.topk = (1, 5)
+        self.topk = topk
 
     def load_res(self, res_file):
         """
@@ -47,22 +49,28 @@ class ImageNetEvaluator(Evaluator):
         for line in lines:
             info = json.loads(line)
             for key in info.keys():
-                res_dict[key].append(info[key])
-
+                if key not in res_dict.keys():
+                    res_dict[key] = [info[key]]
+                else:
+                    res_dict[key].append(info[key])
         return res_dict
 
     def eval(self, res_file):
         res_dict = self.load_res(res_file)
-        pred = torch.from_numpy(np.array(res_dict['prediction']))
+        pred = torch.from_numpy(np.array(res_dict['score']))
         label = torch.from_numpy(np.array(res_dict['label']))
-        filename = res_dict['filename']
+        num = pred.size(0)
+        maxk = max(self.topk)
+        _, pred = pred.topk(maxk, 1, True, True)
         pred = pred.t()
         correct = pred.eq(label.view(1, -1).expand_as(pred))
-        res = []
+        res = {}
         for k in self.topk:
             correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
-            res.append(correct_k.mul_(100.0 / len(filename)))
-        metric = ClsMetric(res[0].item(), res[1].item())
+            acc = correct_k.mul_(100.0 / num)
+            res.update({f'top{k}': acc.item()})
+        metric = ClsMetric(res)
+        metric.set_cmp_key(f'top{self.topk[0]}')
 
         return metric
 
