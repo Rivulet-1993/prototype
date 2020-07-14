@@ -52,9 +52,6 @@ class DistributedSampler(Sampler):
         self.epoch = epoch
 
 
-Naive = DistributedSampler
-
-
 class DistributedGivenIterationSampler(Sampler):
     def __init__(self, dataset, total_iter, batch_size, world_size=None, rank=None, last_iter=0):
         if world_size is None:
@@ -104,9 +101,6 @@ class DistributedGivenIterationSampler(Sampler):
         # should only be used for displaying, the correct remaining size is
         # handled by dataloader
         return self.total_size
-
-
-GivenIteration = DistributedGivenIterationSampler
 
 
 class DistributedEpochSampler(Sampler):
@@ -169,8 +163,12 @@ class DistributedEpochSampler(Sampler):
         return self.all_size_single
 
 
-GivenEpoch = DistributedEpochSampler
+sampler_dict = {
+    'naive': DistributedSampler,
+    'given_iteration': DistributedGivenIterationSampler,
+    'given_epoch': DistributedEpochSampler,
+}
 
 
-def build_sampler(config):
-    return globals()[config.type](**config.kwargs)
+def build_sampler(cfg):
+    return sampler_dict[cfg['type']](**cfg['kwargs'])

@@ -1,0 +1,85 @@
+type: imagenet
+version: 0.1
+config:
+    model:
+        type: resnet18
+        kwargs:
+            num_classes: 1000
+            bn:
+                use_sync_bn: False
+                kwargs: {}
+
+    dist:
+        sync: False
+
+    optimizer:
+        type: SGD
+        kwargs:
+            nesterov: True
+            momentum: 0.9
+            weight_decay: 0.0001
+
+    lr_scheduler:
+        type: Step
+        kwargs:
+            lr_steps: [5000, 8000, 12000]
+            lr_mults: [0.1, 0.1, 0.1]
+
+            base_lr: 0.0001
+            warmup_lr: 0.01
+            warmup_steps: 100
+            max_iter: 11100
+
+    label_smooth: 0.1
+    ema:
+        enable: False
+
+    data:
+        type: imagenet
+        read_from: mc
+        use_dali: False
+        batch_size: 64
+        num_workers: 2
+        pin_memory: True
+        input_size: 224
+        test_resize: 256
+
+        train:
+            root_dir: /mnt/lustre/share/images/train/
+            meta_file: /mnt/lustre/share/images/meta/train.txt
+            sampler:
+                type: given_iteration
+            transforms:
+                - type: random_resized_crop
+                  kwargs:
+                      size: 224
+                - type: random_horizontal_flip
+                - type: color_jitter
+                  kwargs:
+                      brightness: 0.2
+                      contrast: 0.2
+                      saturation: 0.2
+                      hue: 0.1
+                - type: to_tensor
+                - type: normalize
+                  kwargs:
+                      mean: [0.485, 0.456, 0.406]
+                      std: [0.229, 0.224, 0.225]
+                       
+                # type: STANDARD
+
+        test:
+            root_dir: /mnt/lustre/share/images/val/
+            meta_file: /mnt/lustre/share/images/meta/val.txt
+            sampler:
+                type: naive
+            transforms:
+                type: ONECROP
+            evaluator:
+                type: imagenet
+                kwargs:
+                    topk: [1, 5]
+
+    print_freq: 10
+    val_freq: 20
+    save_many: False

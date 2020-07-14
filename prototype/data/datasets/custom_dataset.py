@@ -73,7 +73,6 @@ class CustomDataset(BaseDataset):
             'filename': filename,
             'label_name': label_name
         }
-
         return item
 
     def dump(self, writer, output):

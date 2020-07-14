@@ -24,12 +24,12 @@ def build_custom_dataloader(data_type, cfg_dataset):
         root_dir=cfg_dataset[data_type]['root_dir'],
         meta_file=cfg_dataset[data_type]['meta_file'],
         transform=transformer,
-        read_from=cfg_dataset.read_from,
+        read_from=cfg_dataset['read_from'],
         evaluator=evaluator,
     )
     # initialize kwargs of sampler
     cfg_dataset[data_type]['sampler']['kwargs'] = {}
-    if cfg_dataset[data_type]['sampler']['type'] == 'Naive':
+    if cfg_dataset[data_type]['sampler']['type'] == 'naive':
         sampler_kwargs = {'dataset': dataset}
     else:
         sampler_kwargs = {

@@ -20,7 +20,8 @@ from prototype.utils.ema import EMA
 from prototype.model import model_entry
 from prototype.optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD
 from prototype.lr_scheduler import scheduler_entry
-from prototype.data import make_imagenet_train_data, make_imagenet_val_data, build_custom_dataloader
+from prototype.data import build_imagenet_train_dataloader, build_imagenet_test_dataloader
+from prototype.data import build_custom_dataloader
 from prototype.loss_functions import LabelSmoothCELoss
 from prototype.utils.user_analysis_helper import send_info
 
@@ -171,12 +172,12 @@ class ClsSolver(BaseSolver):
 
         if self.config.data.last_iter < self.config.data.max_iter:
             if self.config.data.get('type', 'imagenet') == 'imagenet':
-                self.train_data = make_imagenet_train_data(self.config.data)
+                self.train_data = build_imagenet_train_dataloader(self.config.data)
             else:
                 self.train_data = build_custom_dataloader('train', self.config.data)
 
         if self.config.data.get('type', 'imagenet') == 'imagenet':
-            self.val_data = make_imagenet_val_data(self.config.data)
+            self.val_data = build_imagenet_test_dataloader(self.config.data)
         else:
             self.val_data = build_custom_dataloader('test', self.config.data)
 

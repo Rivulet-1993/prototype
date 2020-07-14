@@ -1,13 +1,40 @@
 try:
-    import linklink.dali as link_dali
+    import linklink.dali as link_dali  # noqa
 except ModuleNotFoundError:
     print('import linklink.dali failed, linklink version should >= 0.2.0')
 
 import nvidia.dali.ops as ops
 import nvidia.dali.types as types
+from nvidia.dali.pipeline import Pipeline
 
 
-class ImageNetTrainPipeV2(link_dali.CustomPipeline):
+class CustomPipeline(object):
+    r"""CustomPipeline will work with :class:`linklink.dali.DataLoader` to
+    provide pytorch native dataloader experience.
+
+    """
+    def __init__(self, **kwargs):
+        self.extra_kwargs = kwargs
+
+    def define_graph(self):
+        raise NotImplementedError
+
+
+class _PipelineBase(Pipeline):
+    """
+    Hide common options away.
+    """
+    def __init__(self, custom_pipe, batch_size, num_threads, device_id,
+                 **kwargs):
+        super(_PipelineBase, self).__init__(batch_size, num_threads, device_id,
+                                            **kwargs)
+        self.custom_pipe = custom_pipe
+
+    def define_graph(self):
+        return self.custom_pipe.define_graph()
+
+
+class ImageNetTrainPipeV2(CustomPipeline):
     def __init__(self, data_root, data_list, sampler, crop, colorjitter=None):
         super(ImageNetTrainPipeV2, self).__init__()
         # print('data root: {}, data list: {}, len(sampler_index): {}'.format(
@@ -56,7 +83,7 @@ class ImageNetTrainPipeV2(link_dali.CustomPipeline):
         return [output, labels]
 
 
-class ImageNetValPipeV2(link_dali.CustomPipeline):
+class ImageNetValPipeV2(CustomPipeline):
     def __init__(self, data_root, data_list, sampler, crop, size):
         super(ImageNetValPipeV2, self).__init__()
 

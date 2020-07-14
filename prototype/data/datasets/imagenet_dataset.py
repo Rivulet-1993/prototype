@@ -75,16 +75,30 @@ class ImageNetDataset(BaseDataset):
         return item
 
     def dump(self, writer, output):
-        filename = output['filename']
-        image_id = output['image_id']
         prediction = self.tensor2numpy(output['prediction'])
         label = self.tensor2numpy(output['label'])
-        for _idx in range(len(filename)):
-            res = {
-                'filename': filename[_idx],
-                'image_id': int(image_id[_idx]),
-                'prediction': int(prediction[_idx]),
-                'label': int(label[_idx])
-            }
-            writer.write(json.dumps(res, ensure_ascii=False) + '\n')
+        score = self.tensor2numpy(output['score'])
+
+        if 'filename' in output:
+            # pytorch type: {'image', 'label', 'filename', 'image_id'}
+            filename = output['filename']
+            image_id = output['image_id']
+            for _idx in range(prediction.shape[0]):
+                res = {
+                    'filename': filename[_idx],
+                    'image_id': int(image_id[_idx]),
+                    'prediction': int(prediction[_idx]),
+                    'label': int(label[_idx]),
+                    'score': [float(s) for s in score[_idx]],
+                }
+                writer.write(json.dumps(res, ensure_ascii=False) + '\n')
+        else:
+            # dali type: {'image', 'label'}
+            for _idx in range(prediction.shape[0]):
+                res = {
+                    'prediction': int(prediction[_idx]),
+                    'label': int(label[_idx]),
+                    'score': [float(s) for s in score[_idx]],
+                }
+                writer.write(json.dumps(res, ensure_ascii=False) + '\n')
         writer.flush()

@@ -1,336 +1,271 @@
-import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from .datasets import ImageNetDataset
-from .pipelines import ImageNetTrainPipe, ImageNetValPipe, ImageNetTrainPipeV2, ImageNetValPipeV2
-from .nvidia_dali_dataloader import DaliDataLoader, dali_default_collate
-from .sampler import DistributedGivenIterationSampler, DistributedEpochSampler, DistributedSampler
-from .auto_augmentation import ImageNetPolicy, Cutout  # noqa: F401
-from .transforms import TwoCropsTransform, GaussianBlur
-from prototype.utils.misc import get_logger
-
-try:
-    import linklink.dali as link_dali
-except ModuleNotFoundError:
-    print('import linklink.dali failed, linklink version should >= 0.2.0')
+from .transforms import build_transformer, TwoCropsTransform, GaussianBlur
+from .auto_augmentation import ImageNetPolicy
+from .sampler import build_sampler
+from .metrics import build_evaluator
+from .pipelines import ImageNetTrainPipeV2, ImageNetValPipeV2
+from .nvidia_dali_dataloader import DaliDataloader
 
 
-def make_imagenet_train_data(config):
+def build_common_augmentation(aug_type):
     """
-    config fields:
-        use_dali: bool
-        read_from: 'fake', 'mc', 'ceph', 'fs'
-        batch_size: int
-        dali_workers: int
-        workers: int
-        pin_memory: bool
-        epoch_wise_shuffle: bool
-        input_size: int
-        test_resize: int
-        augmentation:
-            rotation: float
-            colorjitter: bool
-        train_root: str
-        train_meta: str
-        val_root: str
-        val_meta: str
-
-        max_iter: int
-        last_iter: int
+    common augmentation settings for training/testing ImageNet
     """
-
-    logger = get_logger(__name__)
-
-    config.moco_protocol = config.get('moco_protocol', False)
-    config.linear_protocol = config.get('linear_protocol', False)
-
-    if config.use_dali:
-        dataset = ImageNetDataset(
-            config.train_root,
-            config.train_meta,
-            read_from=config.read_from)
-
-        pipeline = ImageNetTrainPipe(config.batch_size,
-                                     config.dali_workers,
-                                     torch.cuda.current_device(),
-                                     config.input_size,
-                                     colorjitter=config.augmentation.colorjitter)
-
-        if config.epoch_wise_shuffle:
-            sampler = DistributedEpochSampler(
-                dataset=dataset,
-                total_iter=config.max_iter,
-                batch_size=config.batch_size,
-                last_iter=config.last_iter)
-        else:
-            sampler = DistributedGivenIterationSampler(
-                dataset=dataset,
-                total_iter=config.max_iter,
-                batch_size=config.batch_size,
-                last_iter=config.last_iter)
-
-        torch_loader = DataLoader(
-            dataset, batch_size=config.batch_size, shuffle=False,
-            num_workers=config.workers, pin_memory=config.pin_memory, sampler=sampler,
-            collate_fn=dali_default_collate)
-
-        loader = DaliDataLoader(pipeline, dataloader=torch_loader)
-
-    elif config.use_dali_v2:
-        dataset = ImageNetDataset(
-            config.train_root,
-            config.train_meta,
-            read_from=config.read_from)
-
-        if config.epoch_wise_shuffle:
-            sampler = DistributedEpochSampler(
-                dataset=dataset,
-                total_iter=config.max_iter,
-                batch_size=config.batch_size,
-                last_iter=config.last_iter)
-        else:
-            sampler = DistributedGivenIterationSampler(
-                dataset=dataset,
-                total_iter=config.max_iter,
-                batch_size=config.batch_size,
-                last_iter=config.last_iter)
-
-        pipeline = ImageNetTrainPipeV2(config.train_root,
-                                       config.train_meta,
-                                       sampler,
-                                       config.input_size,
-                                       colorjitter=config.augmentation.colorjitter)
-
-        loader = link_dali.DataLoader(pipeline, config.batch_size, len(sampler),
-                                      config.dali_workers,
-                                      last_iter=config.last_iter)
-
-    elif config.moco_protocol:
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-
-        if config.augmentation.type == "moco_v1":
-            aug = [
-                transforms.RandomResizedCrop(224, scale=(0.2, 1.)),
-                transforms.RandomGrayscale(p=0.2),
-                transforms.ColorJitter(0.4, 0.4, 0.4, 0.4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                normalize
-            ]
-        elif config.augmentation.type == "moco_v2" or config.augmentation.type == 'simclr':
-            aug = [
-                transforms.RandomResizedCrop(224, scale=(0.2, 1.)),
-                transforms.RandomApply([
-                    transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)  # not strengthened
-                ], p=0.8),
-                transforms.RandomGrayscale(p=0.2),
-                transforms.RandomApply([GaussianBlur([.1, 2.])], p=0.5),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                normalize
-            ]
-        else:
-            raise RuntimeError("undefined augmentation type for unsupervised learning")
-
-        dataset = ImageNetDataset(
-            config.train_root,
-            config.train_meta,
-            TwoCropsTransform(transforms.Compose(aug)),
-            read_from=config.read_from)
-
-        if config.epoch_wise_shuffle:
-            sampler = DistributedEpochSampler(
-                dataset=dataset,
-                total_iter=config.max_iter,
-                batch_size=config.batch_size,
-                last_iter=config.last_iter)
-        else:
-            sampler = DistributedGivenIterationSampler(
-                dataset=dataset,
-                total_iter=config.max_iter,
-                batch_size=config.batch_size,
-                last_iter=config.last_iter)
-
-        loader = DataLoader(
-            dataset, batch_size=config.batch_size, shuffle=False,
-            num_workers=config.workers, pin_memory=True, sampler=sampler)
-
-    elif config.linear_protocol:
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-
-        aug = [
-            transforms.RandomResizedCrop(config.input_size),
+    normalize = transforms.Normalize(
+        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    if aug_type == 'STANDARD':
+        augmentation = [
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ColorJitter(0.2, 0.2, 0.2, 0.1),
+            transforms.ToTensor(),
+            normalize,
+        ]
+    elif aug_type == 'AUTOAUG':
+        augmentation = [
+            transforms.RandomResizedCrop(224),
+            ImageNetPolicy(),
+            transforms.ToTensor(),
+            normalize,
+        ]
+    elif aug_type == 'MOCOV1':
+        augmentation = [
+            transforms.RandomResizedCrop(224, scale=(0.2, 1.)),
+            transforms.RandomGrayscale(p=0.2),
+            transforms.ColorJitter(0.4, 0.4, 0.4, 0.4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize
+        ]
+    elif aug_type == 'MOCOV2' or aug_type == 'SIMCLR':
+        augmentation = [
+            transforms.RandomResizedCrop(224, scale=(0.2, 1.)),
+            transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
+            transforms.RandomGrayscale(p=0.2),
+            transforms.RandomApply([GaussianBlur([.1, 2.])], p=0.5),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize
+        ]
+    elif aug_type == 'LINEAR':
+        augmentation = [
+            transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize,
         ]
-
-        dataset = ImageNetDataset(
-            config.train_root,
-            config.train_meta,
-            transforms.Compose(aug),
-            read_from=config.read_from)
-
-        if config.epoch_wise_shuffle:
-            sampler = DistributedEpochSampler(
-                dataset=dataset,
-                total_iter=config.max_iter,
-                batch_size=config.batch_size,
-                last_iter=config.last_iter)
-        else:
-            sampler = DistributedGivenIterationSampler(
-                dataset=dataset,
-                total_iter=config.max_iter,
-                batch_size=config.batch_size,
-                last_iter=config.last_iter)
-
-        loader = DataLoader(
-            dataset, batch_size=config.batch_size, shuffle=False,
-            num_workers=config.workers, pin_memory=True, sampler=sampler)
-
+    elif aug_type == 'ONECROP':
+        augmentation = [
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            normalize,
+        ]
     else:
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                         std=[0.229, 0.224, 0.225])
+        raise RuntimeError("undefined augmentation type for ImageNet!")
 
-        # augmentation
-        if config.get('autoaugment', False):
-            logger.info('Use Auto-Augmentation of ImageNetPolicy!')
-            aug = [transforms.RandomResizedCrop(config.input_size),
-                   ImageNetPolicy()]
-        else:
-            aug = [transforms.RandomResizedCrop(config.input_size),
-                   transforms.RandomHorizontalFlip()]
-
-            for k in config.augmentation.keys():
-                assert k in ['rotation', 'colorjitter']
-            rotation = config.augmentation.get('rotation', 0)
-            colorjitter = config.augmentation.get('colorjitter', None)
-
-            if rotation > 0:
-                aug.append(transforms.RandomRotation(rotation))
-
-            if colorjitter is not None:
-                aug.append(transforms.ColorJitter(*colorjitter))
-
-        aug.append(transforms.ToTensor())
-        aug.append(normalize)
-
-        dataset = ImageNetDataset(
-            config.train_root,
-            config.train_meta,
-            transforms.Compose(aug),
-            read_from=config.read_from)
-
-        if config.epoch_wise_shuffle:
-            sampler = DistributedEpochSampler(
-                dataset=dataset,
-                total_iter=config.max_iter,
-                batch_size=config.batch_size,
-                last_iter=config.last_iter)
-        else:
-            sampler = DistributedGivenIterationSampler(
-                dataset=dataset,
-                total_iter=config.max_iter,
-                batch_size=config.batch_size,
-                last_iter=config.last_iter)
-
-        loader = DataLoader(
-            dataset, batch_size=config.batch_size, shuffle=False,
-            num_workers=config.workers, pin_memory=True, sampler=sampler)
-
-    return {'loader': loader}
+    if aug_type in ['MOCOV1', 'MOCOV2', 'SIMCLR']:
+        return TwoCropsTransform(transforms.Compose(augmentation))
+    else:
+        return transforms.Compose(augmentation)
 
 
-def make_imagenet_val_data(config, periodic=False):
-    """Generate validation dataloader for evaluation or NAS.
-
-    args:
-        config (EasyDict): configuration for building the dataset.
-        periodic (bool): default ``False``,
-            If ``True``, samples will be called periodically (for neural network search);
-            If ``False``, samples will be called once for evaluation.
+def build_imagenet_train_dataloader(cfg_dataset, data_type='train'):
     """
-
-    if config.use_dali:
+    build training dataloader for ImageNet
+    """
+    cfg_train = cfg_dataset['train']
+    # build dataset
+    if cfg_dataset['use_dali']:
+        # NVIDIA dali preprocessing
+        assert cfg_train['transforms']['type'] == 'STANDARD', 'only support standard augmentation'
         dataset = ImageNetDataset(
-            config.val_root,
-            config.val_meta,
-            read_from=config.read_from)
-
-        pipeline = ImageNetValPipe(config.batch_size,
-                                   config.dali_workers,
-                                   torch.cuda.current_device(),
-                                   config.input_size,
-                                   config.test_resize)
-
-        if periodic:
-            sampler = DistributedGivenIterationSampler(
-                dataset=dataset,
-                total_iter=config.max_iter,
-                batch_size=config.batch_size,
-                last_iter=config.last_iter)
-        else:
-            sampler = DistributedSampler(dataset, round_up=False)
-
-        torch_loader = DataLoader(
-            dataset, batch_size=config.batch_size, shuffle=False,
-            num_workers=config.workers, pin_memory=config.pin_memory, sampler=sampler,
-            collate_fn=dali_default_collate)
-
-        loader = DaliDataLoader(pipeline, dataloader=torch_loader)
-
-    elif config.use_dali_v2:
-
-        dataset = ImageNetDataset(
-            config.val_root,
-            config.val_meta,
-            read_from=config.read_from)
-
-        if periodic:
-            sampler = DistributedGivenIterationSampler(
-                dataset=dataset,
-                total_iter=config.max_iter,
-                batch_size=config.batch_size,
-                last_iter=config.last_iter)
-        else:
-            sampler = DistributedSampler(dataset, round_up=False)
-
-        pipeline = ImageNetValPipeV2(config.val_root,
-                                     config.val_meta,
-                                     sampler,
-                                     config.input_size,
-                                     config.test_resize)
-
-        loader = link_dali.DataLoader(
-            pipeline, config.batch_size, len(sampler), config.dali_workers)
-
+            root_dir=cfg_train['root_dir'],
+            meta_file=cfg_train['meta_file'],
+            read_from=cfg_dataset['read_from']
+        )
     else:
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                         std=[0.229, 0.224, 0.225])
-
-        dataset = ImageNetDataset(
-            config.val_root,
-            config.val_meta,
-            transforms.Compose([
-                transforms.Resize(config.test_resize),
-                transforms.CenterCrop(config.input_size),
-                transforms.ToTensor(),
-                normalize,
-            ]),
-            read_from=config.read_from)
-
-        if periodic:
-            sampler = DistributedGivenIterationSampler(
-                dataset=dataset,
-                total_iter=config.max_iter,
-                batch_size=config.batch_size,
-                last_iter=config.last_iter)
+        # PyTorch data preprocessing
+        if isinstance(cfg_train['transforms'], list):
+            transformer = build_transformer(cfg_train['transforms'])
         else:
-            sampler = DistributedSampler(dataset, round_up=False)
-
+            transformer = build_common_augmentation(cfg_train['transforms']['type'])
+        dataset = ImageNetDataset(
+            root_dir=cfg_train['root_dir'],
+            meta_file=cfg_train['meta_file'],
+            transform=transformer,
+            read_from=cfg_dataset['read_from']
+        )
+    # build sampler
+    cfg_train['sampler']['kwargs'] = {}
+    if cfg_train['sampler']['type'] == 'naive':
+        sampler_kwargs = {'dataset': dataset}
+    else:
+        sampler_kwargs = {
+            'dataset': dataset,
+            'batch_size': cfg_dataset['batch_size'],
+            'total_iter': cfg_dataset['max_iter'],
+            'last_iter': cfg_dataset['last_iter']
+        }
+    cfg_train['sampler']['kwargs'].update(sampler_kwargs)
+    sampler = build_sampler(cfg_train['sampler'])
+    # build dataloader
+    if cfg_dataset['use_dali']:
+        # NVIDIA dali pipeline
+        pipeline = ImageNetTrainPipeV2(
+            data_root=cfg_train['root_dir'],
+            data_list=cfg_train['meta_file'],
+            sampler=sampler,
+            crop=cfg_dataset['input_size'],
+            colorjitter=[0.2, 0.2, 0.2, 0.1]
+        )
+        loader = DaliDataloader(
+            pipeline=pipeline,
+            batch_size=cfg_dataset['batch_size'],
+            epoch_size=len(sampler),
+            num_threads=cfg_dataset['num_workers'],
+            last_iter=cfg_dataset['last_iter']
+        )
+    else:
+        # PyTorch dataloader
         loader = DataLoader(
-            dataset, batch_size=config.batch_size, shuffle=False,
-            num_workers=config.workers, pin_memory=config.pin_memory, sampler=sampler)
+            dataset=dataset,
+            batch_size=cfg_dataset['batch_size'],
+            shuffle=False,
+            num_workers=cfg_dataset['num_workers'],
+            pin_memory=True,
+            sampler=sampler
+        )
+    return {'type': 'train', 'loader': loader}
 
-    return {'loader': loader}
+
+def build_imagenet_test_dataloader(cfg_dataset, data_type='test'):
+    """
+    build testing/validation dataloader for ImageNet
+    """
+    cfg_test = cfg_dataset['test']
+    # build evaluator
+    evaluator = None
+    if cfg_test.get('evaluator', None):
+        evaluator = build_evaluator(cfg_test['evaluator'])
+    if cfg_dataset['use_dali']:
+        # NVIDIA dali preprocessing
+        assert cfg_test['transforms']['type'] == 'ONECROP', 'only support onecrop augmentation'
+        dataset = ImageNetDataset(
+            root_dir=cfg_test['root_dir'],
+            meta_file=cfg_test['meta_file'],
+            read_from=cfg_dataset['read_from'],
+            evaluator=evaluator,
+        )
+    else:
+        # PyTorch data preprocessing
+        if isinstance(cfg_test['transforms'], list):
+            transformer = build_transformer(cfg_test['transforms'])
+        else:
+            transformer = build_common_augmentation(cfg_test['transforms']['type'])
+        dataset = ImageNetDataset(
+            root_dir=cfg_test['root_dir'],
+            meta_file=cfg_test['meta_file'],
+            transform=transformer,
+            read_from=cfg_dataset['read_from'],
+            evaluator=evaluator,
+        )
+    # build sampler
+    assert cfg_test['sampler'].get('type', 'naive') == 'naive'
+    cfg_test['sampler']['kwargs'] = {'dataset': dataset, 'round_up': False}
+    sampler = build_sampler(cfg_test['sampler'])
+    # build dataloader
+    if cfg_dataset['use_dali']:
+        # NVIDIA dali pipeline
+        pipeline = ImageNetValPipeV2(
+            data_root=cfg_test['root_dir'],
+            data_list=cfg_test['meta_file'],
+            sampler=sampler,
+            crop=cfg_dataset['input_size'],
+            size=cfg_dataset['test_resize'],
+        )
+        loader = DaliDataloader(
+            pipeline=pipeline,
+            batch_size=cfg_dataset['batch_size'],
+            epoch_size=len(sampler),
+            num_threads=cfg_dataset['num_workers'],
+            dataset=dataset,
+        )
+    else:
+        # PyTorch dataloader
+        loader = DataLoader(
+            dataset=dataset,
+            batch_size=cfg_dataset['batch_size'],
+            shuffle=False,
+            num_workers=cfg_dataset['num_workers'],
+            pin_memory=cfg_dataset['pin_memory'],
+            sampler=sampler
+        )
+    return {'type': 'test', 'loader': loader}
+
+
+def build_imagenet_search_dataloader(cfg_dataset, data_type='search'):
+    """
+    build ImageNet dataloader for neural network search (NAS)
+    """
+    cfg_search = cfg_dataset[data_type]
+    # build dataset
+    if cfg_dataset['use_dali']:
+        # NVIDIA dali preprocessing
+        assert cfg_search['transforms']['type'] == 'ONECROP', 'only support onecrop augmentation'
+        dataset = ImageNetDataset(
+            root_dir=cfg_search['root_dir'],
+            meta_file=cfg_search['meta_file'],
+            read_from=cfg_dataset['read_from'],
+        )
+    else:
+        # PyTorch data preprocessing
+        if isinstance(cfg_search['transforms'], list):
+            transformer = build_transformer(cfg_search['transforms'])
+        else:
+            transformer = build_common_augmentation(cfg_search['transforms']['type'])
+        dataset = ImageNetDataset(
+            root_dir=cfg_search['root_dir'],
+            meta_file=cfg_search['meta_file'],
+            transform=transformer,
+            read_from=cfg_dataset['read_from'],
+        )
+    # build sampler
+    assert cfg_search['sampler'].get('type', 'given_iteration') == 'given_iteration'
+    cfg_search['sampler']['kwargs'] = {
+        'dataset': dataset,
+        'batch_size': cfg_dataset['batch_size'],
+        'total_iter': cfg_dataset['max_iter'],
+        'last_iter': cfg_dataset['last_iter'],
+    }
+    sampler = build_sampler(cfg_search['sampler'])
+    # build dataloder
+    if cfg_dataset['use_dali']:
+        # NVIDIA dali pipeline
+        pipeline = ImageNetValPipeV2(
+            data_root=cfg_search['root_dir'],
+            data_list=cfg_search['meta_file'],
+            sampler=sampler,
+            crop=cfg_dataset['input_size'],
+            size=cfg_dataset['test_resize'],
+        )
+        loader = DaliDataloader(
+            pipeline=pipeline,
+            batch_size=cfg_dataset['batch_size'],
+            epoch_size=len(sampler),
+            num_threads=cfg_dataset['num_workers'],
+        )
+    else:
+        # PyTorch dataloader
+        loader = DataLoader(
+            dataset=dataset,
+            batch_size=cfg_dataset['batch_size'],
+            shuffle=False,
+            num_workers=cfg_dataset['num_workers'],
+            pin_memory=cfg_dataset['pin_memory'],
+            sampler=sampler
+        )
+    return {'type': data_type, 'loader': loader}
