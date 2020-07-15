@@ -1,70 +1,67 @@
-type: imagenet
-version: 0.1
-config:
-    model:
-        type: resnet18
-        kwargs:
-            num_classes: 1000
-            bn:
-                use_sync_bn: False
-                kwargs: {}
+model:
+    type: resnet18
+    kwargs:
+        num_classes: 1000
+        bn:
+            use_sync_bn: False
+            kwargs: {}
 
-    dist:
-        sync: False
+dist:
+    sync: False
 
-    optimizer:
-        type: FusedFP16SGD
-        fp16_normal_bn: True
-        kwargs:
-            nesterov: True
-            momentum: 0.9
-            weight_decay: 0.0001
+optimizer:
+    type: FusedFP16SGD
+    fp16_normal_bn: True
+    kwargs:
+        nesterov: True
+        momentum: 0.9
+        weight_decay: 0.0001
 
-    lr_scheduler:
-        type: Step
-        kwargs:
-            lr_steps: [37500, 75000, 112500]
-            lr_mults: [0.1, 0.1, 0.1]
+lr_scheduler:
+    type: Step
+    kwargs:
+        lr_steps: [37500, 75000, 112500]
+        lr_mults: [0.1, 0.1, 0.1]
 
-            base_lr: 0.1
-            warmup_lr: 0.4
-            warmup_steps: 2500
-            max_iter: 125000
+        base_lr: 0.1
+        warmup_lr: 0.4
+        warmup_steps: 2500
+        max_iter: 125000
 
-    label_smooth: 0.1
-    ema:
-        enable: False
+label_smooth: 0.1
+ema:
+    enable: False
 
-    data:
-        type: imagenet
-        read_from: mc
-        use_dali: True
-        batch_size: 64
-        num_workers: 2
-        pin_memory: True
-        input_size: 224
-        test_resize: 256
+data:
+    type: imagenet
+    read_from: mc
+    use_dali: True
+    batch_size: 64
+    num_workers: 2
+    pin_memory: True
+    input_size: 224
+    test_resize: 256
 
-        train:
-            root_dir: /mnt/lustre/share/images/train/
-            meta_file: /mnt/lustre/share/images/meta/train.txt
-            sampler:
-                type: given_iteration
-            transforms:
-                type: STANDARD
+    train:
+        root_dir: /mnt/lustre/share/images/train/
+        meta_file: /mnt/lustre/share/images/meta/train.txt
+        sampler:
+            type: distributed_iteration
+        transforms:
+            type: STANDARD
 
-        test:
-            root_dir: /mnt/lustre/share/images/val/
-            meta_file: /mnt/lustre/share/images/meta/val.txt
-            sampler:
-                type: naive
-            transforms:
-                type: ONECROP
-            evaluator:
-                type: imagenet
-                kwargs:
-                    topk: [1, 5]
+    test:
+        root_dir: /mnt/lustre/share/images/val/
+        meta_file: /mnt/lustre/share/images/meta/val.txt
+        sampler:
+            type: distributed
+        transforms:
+            type: ONECROP
+        evaluator:
+            type: imagenet
+            kwargs:
+                topk: [1, 5]
 
-    print_freq: 10
-    val_freq: 5000
-    save_many: False
+print_freq: 10
+val_freq: 5000
+save_many: False

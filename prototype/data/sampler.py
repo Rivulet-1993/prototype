@@ -164,9 +164,9 @@ class DistributedEpochSampler(Sampler):
 
 
 sampler_dict = {
-    'naive': DistributedSampler,
-    'given_iteration': DistributedGivenIterationSampler,
-    'given_epoch': DistributedEpochSampler,
+    'distributed': DistributedSampler,
+    'distributed_iteration': DistributedGivenIterationSampler,
+    'distributed_epoch': DistributedEpochSampler,
 }
 
 

@@ -11,11 +11,10 @@ import linklink as link
 import torch.nn.functional as F
 
 from .base_solver import BaseSolver
-from prototype.config import parse_config
 from prototype.utils.dist import link_dist, DistModule, broadcast_object
 from prototype.utils.misc import makedir, create_logger, get_logger, count_params, count_flops, \
     param_group_all, AverageMeter, accuracy, load_state_model, load_state_optimizer, mixup_data, \
-    mix_criterion, modify_state, cutmix_data
+    mix_criterion, modify_state, cutmix_data, parse_config
 from prototype.utils.ema import EMA
 from prototype.model import model_entry
 from prototype.optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD

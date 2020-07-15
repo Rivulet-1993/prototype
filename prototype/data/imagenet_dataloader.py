@@ -101,7 +101,7 @@ def build_imagenet_train_dataloader(cfg_dataset, data_type='train'):
         )
     # build sampler
     cfg_train['sampler']['kwargs'] = {}
-    if cfg_train['sampler']['type'] == 'naive':
+    if cfg_train['sampler']['type'] == 'distributed':
         sampler_kwargs = {'dataset': dataset}
     else:
         sampler_kwargs = {
@@ -174,7 +174,7 @@ def build_imagenet_test_dataloader(cfg_dataset, data_type='test'):
             evaluator=evaluator,
         )
     # build sampler
-    assert cfg_test['sampler'].get('type', 'naive') == 'naive'
+    assert cfg_test['sampler'].get('type', 'distributed') == 'distributed'
     cfg_test['sampler']['kwargs'] = {'dataset': dataset, 'round_up': False}
     sampler = build_sampler(cfg_test['sampler'])
     # build dataloader

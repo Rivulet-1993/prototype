@@ -29,7 +29,7 @@ def build_custom_dataloader(data_type, cfg_dataset):
     )
     # initialize kwargs of sampler
     cfg_dataset[data_type]['sampler']['kwargs'] = {}
-    if cfg_dataset[data_type]['sampler']['type'] == 'naive':
+    if cfg_dataset[data_type]['sampler']['type'] == 'distributed':
         sampler_kwargs = {'dataset': dataset}
     else:
         sampler_kwargs = {
