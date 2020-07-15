@@ -93,6 +93,7 @@ class RandomOrientationRotation(object):
 
 transforms_info_dict = {
     'resize': transforms.Resize,
+    'center_crop': transforms.CenterCrop,
     'random_resized_crop': transforms.RandomResizedCrop,
     'random_horizontal_flip': transforms.RandomHorizontalFlip,
     'ramdom_vertical_flip': transforms.RandomVerticalFlip,

@@ -13,7 +13,8 @@ config:
         sync: False
 
     optimizer:
-        type: SGD
+        type: FusedFP16SGD
+        fp16_normal_bn: True
         kwargs:
             nesterov: True
             momentum: 0.9
@@ -22,13 +23,13 @@ config:
     lr_scheduler:
         type: Step
         kwargs:
-            lr_steps: [5000, 8000, 12000]
+            lr_steps: [37500, 75000, 112500]
             lr_mults: [0.1, 0.1, 0.1]
 
-            base_lr: 0.0001
-            warmup_lr: 0.01
-            warmup_steps: 100
-            max_iter: 11100
+            base_lr: 0.1
+            warmup_lr: 0.4
+            warmup_steps: 2500
+            max_iter: 125000
 
     label_smooth: 0.1
     ema:
@@ -74,12 +75,24 @@ config:
             sampler:
                 type: naive
             transforms:
-                type: ONECROP
+                - type: resize
+                  kwargs:
+                      size: [256, 256]
+                - type: center_crop
+                  kwargs:
+                      size: [224, 224]
+                - type: to_tensor
+                - type: normalize
+                  kwargs:
+                      mean: [0.485, 0.456, 0.406]
+                      std: [0.229, 0.224, 0.225]
+
+                # type: ONECROP
             evaluator:
                 type: imagenet
                 kwargs:
                     topk: [1, 5]
 
     print_freq: 10
-    val_freq: 20
+    val_freq: 5000
     save_many: False

@@ -88,7 +88,7 @@ class CustomDataset(BaseDataset):
                 'image_id': int(image_id[_idx]),
                 'label_name': label_name[_idx],
                 'prediction': int(prediction[_idx]),
-                'score': [float(s) for s in score[_idx]],
+                'score': [float('%.8f' % s) for s in score[_idx]],
                 'label': int(label[_idx])
             }
             writer.write(json.dumps(res, ensure_ascii=False) + '\n')

@@ -89,7 +89,7 @@ class ImageNetDataset(BaseDataset):
                     'image_id': int(image_id[_idx]),
                     'prediction': int(prediction[_idx]),
                     'label': int(label[_idx]),
-                    'score': [float(s) for s in score[_idx]],
+                    'score': [float('%.8f' % s) for s in score[_idx]],
                 }
                 writer.write(json.dumps(res, ensure_ascii=False) + '\n')
         else:
@@ -98,7 +98,7 @@ class ImageNetDataset(BaseDataset):
                 res = {
                     'prediction': int(prediction[_idx]),
                     'label': int(label[_idx]),
-                    'score': [float(s) for s in score[_idx]],
+                    'score': [float('%.8f' % s) for s in score[_idx]],
                 }
                 writer.write(json.dumps(res, ensure_ascii=False) + '\n')
         writer.flush()
