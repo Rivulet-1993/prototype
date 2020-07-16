@@ -11,9 +11,8 @@ import json
 import numpy as np
 import linklink as link
 
-from prototype.config import parse_config
 from prototype.utils.dist import link_dist, DistModule
-from prototype.utils.misc import accuracy, load_state_model, count_params, count_flops
+from prototype.utils.misc import accuracy, load_state_model, count_params, count_flops, parse_config
 from prototype.model import model_entry
 from prototype.optimizer import FusedFP16SGD, SGD, Adam, FP16RMSprop
 from prototype.solver.cls_solver import ClsSolver
