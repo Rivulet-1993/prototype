@@ -103,3 +103,15 @@ data:
 print_freq: 10
 val_freq: 1000
 save_many: False
+
+to_kestrel:
+      add_softmax: True
+      model_name: KM_Classifier_RailwayC4_Kaikouxiao
+      version: '1.1.1'
+      class_label:
+        defect:
+          calculator: bypass
+          feature_start: 0
+          feature_end: 5
+          labels: ['销钉头', '其他', '模糊', '开口销断裂', '开口销未掰开', '开口销角度不到位']
+

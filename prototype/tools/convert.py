@@ -10,7 +10,7 @@ import linklink as link
 
 from prototype.utils.dist import link_dist
 from prototype.solver.cls_solver import ClsSolver
-from prototype.config import parse_config
+from prototype.utils.misc import parse_config
 
 
 class Wrapper(nn.Module):

@@ -16,7 +16,6 @@ from prototype.utils.misc import accuracy, load_state_model, count_params, count
 from prototype.model import model_entry
 from prototype.optimizer import FusedFP16SGD, SGD, Adam, FP16RMSprop
 from prototype.solver.cls_solver import ClsSolver
-from prototype.data import make_imagenet_val_data
 from prototype.utils.user_analysis_helper import send_info
 
 try:
@@ -145,7 +144,7 @@ class ClsSpringCommonInterface(ClsSolver, SpringCommonInterface):
 
     def build_data(self):
         super().build_data()
-        self.arch_data = make_imagenet_val_data(self.config.data, periodic=True)
+        self.arch_data = None
         self.arch_data['iter'] = None
         # next update
         # self.data_loaders['train'] = self.train_data
