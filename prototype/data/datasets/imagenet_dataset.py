@@ -1,19 +1,7 @@
 import os.path as osp
-import io
 import json
-from PIL import Image
-
 from .base_dataset import BaseDataset
-
-
-def pil_loader(img_bytes, filepath):
-    buff = io.BytesIO(img_bytes)
-    try:
-        with Image.open(buff) as img:
-            img = img.convert('RGB')
-    except IOError:
-        print('Failed in loading {}'.format(filepath))
-    return img
+from prototype.data.image_reader import pil_loader
 
 
 class ImageNetDataset(BaseDataset):

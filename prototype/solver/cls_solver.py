@@ -60,7 +60,8 @@ class ClsSolver(BaseSolver):
         create_logger(os.path.join(self.path.root_path, 'log.txt'))
         self.logger = get_logger(__name__)
         self.logger.info(f'config: {pprint.pformat(self.config)}')
-        self.logger.info(f"hostnames: {os.environ['SLURM_NODELIST']}")
+        if 'SLURM_NODELIST' in os.environ:
+            self.logger.info(f"hostnames: {os.environ['SLURM_NODELIST']}")
         # recover
         if self.recover:
             self.state = torch.load(self.recover, 'cpu')
