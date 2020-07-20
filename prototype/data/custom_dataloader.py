@@ -15,18 +15,31 @@ def build_custom_dataloader(data_type, cfg_dataset):
     assert data_type in cfg_dataset
     # build transformer
     transformer = build_transformer(cfgs=cfg_dataset[data_type]['transforms'],
-                                    image_reader_type=cfg_dataset.get('image_reader', 'pil'))
+                                    image_reader_type=cfg_dataset[data_type].get('image_reader', 'pil'))
     # build evaluator
     evaluator = None
     if data_type == 'test' and cfg_dataset[data_type].get('evaluator', None):
         evaluator = build_evaluator(cfg_dataset[data_type]['evaluator'])
     # build dataset
-    dataset = CustomDataset(root_dir=cfg_dataset[data_type]['root_dir'],
-                            meta_file=cfg_dataset[data_type]['meta_file'],
-                            transform=transformer,
-                            read_from=cfg_dataset['read_from'],
-                            evaluator=evaluator,
-                            image_reader=cfg_dataset.get('image_reader', 'pil'))
+    if cfg_dataset['read_from'] == 'osg':
+        dataset = CustomDataset(
+            root_dir='',
+            meta_file=cfg_dataset[data_type]['meta_file'],
+            transform=transformer,
+            read_from='osg',
+            evaluator=evaluator,
+            image_reader=cfg_dataset[data_type].get('image_reader', 'pil'),
+            osg_server=cfg_dataset[data_type]['osg_server'],
+        )
+    else:
+        dataset = CustomDataset(
+            root_dir=cfg_dataset[data_type]['root_dir'],
+            meta_file=cfg_dataset[data_type]['meta_file'],
+            transform=transformer,
+            read_from=cfg_dataset['read_from'],
+            evaluator=evaluator,
+            image_reader=cfg_dataset[data_type].get('image_reader', 'pil')
+        )
     # initialize kwargs of sampler
     cfg_dataset[data_type]['sampler']['kwargs'] = {}
     if cfg_dataset[data_type]['sampler']['type'] == 'distributed':

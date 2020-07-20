@@ -15,12 +15,14 @@ class CustomDataset(BaseDataset):
         - read_from (:obj:`str`): read type from the original meta_file
         - evaluator (:obj:`Evaluator`): evaluate to get metrics
         - image_reader (:obj:`str`): reader type 'pil' or 'ks'
+        - osg_server (:obj:`str`): '10.198.3.28:30080/components/osg-default/v1'
 
     Metafile example::
         "{'filename': 'n01440764/n01440764_10026.JPEG', 'label': 0, 'label_name': 'dog'}\n"
     """
     def __init__(self, root_dir, meta_file, transform=None,
-                 read_from='mc', evaluator=None, image_reader='pil'):
+                 read_from='mc', evaluator=None, image_reader='pil',
+                 osg_server=None):
 
         self.root_dir = root_dir
         self.meta_file = meta_file
@@ -28,6 +30,7 @@ class CustomDataset(BaseDataset):
         self.transform = transform
         self.evaluator = evaluator
         self.image_reader = build_image_reader(image_reader)
+        self.osg_server = osg_server
         self.initialized = False
 
         with open(meta_file) as f:
@@ -37,7 +40,7 @@ class CustomDataset(BaseDataset):
         self.metas = []
         for line in lines:
             info = json.loads(line)
-            self.metas.append((info['filename'], int(info['label']), info['label_name']))
+            self.metas.append(info)
 
         super(CustomDataset, self).__init__(root_dir=root_dir,
                                             meta_file=meta_file,
@@ -49,10 +52,14 @@ class CustomDataset(BaseDataset):
         return self.num
 
     def __getitem__(self, idx):
-        filename = osp.join(self.root_dir, self.metas[idx][0])
-        label = self.metas[idx][1]
-        label_name = self.metas[idx][2]
-        img_bytes = self.read_file(filename)
+        curr_meta = self.metas[idx]
+        filename = osp.join(self.root_dir, curr_meta['filename'])
+        # add root_dir to filename
+        curr_meta['filename'] = filename
+        label_name = curr_meta['label_name']
+        label = int(curr_meta['label'])
+
+        img_bytes = self.read_file(curr_meta)
         img = self.image_reader(img_bytes, filename)
 
         if self.transform is not None:

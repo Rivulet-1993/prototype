@@ -37,7 +37,7 @@ class ImageNetDataset(BaseDataset):
         self.metas = []
         for line in lines:
             filename, label = line.rstrip().split()
-            self.metas.append((filename, int(label)))
+            self.metas.append({'filename': filename, 'label': label})
 
         super(ImageNetDataset, self).__init__(root_dir=root_dir,
                                               meta_file=meta_file,
@@ -49,9 +49,12 @@ class ImageNetDataset(BaseDataset):
         return self.num
 
     def __getitem__(self, idx):
-        filename = osp.join(self.root_dir, self.metas[idx][0])
-        label = self.metas[idx][1]
-        img_bytes = self.read_file(filename)
+        curr_meta = self.metas[idx]
+        filename = osp.join(self.root_dir, curr_meta['filename'])
+        label = int(curr_meta['label'])
+        # add root_dir to filename
+        curr_meta['filename'] = filename
+        img_bytes = self.read_file(curr_meta)
         img = self.image_reader(img_bytes, filename)
 
         if self.transform is not None:

@@ -58,29 +58,39 @@ class BaseDataset(Dataset):
             # self.client = Client(enable_mc=True)
             self.initialized = True
 
-    def read_file(self, filepath):
+    def _init_osg(self):
+        if not self.initialized:
+            from spring_sdk import OSG
+            self.osg_client = OSG(self.osg_server, secure=False)
+            self.initialized = True
+
+    def read_file(self, meta_dict):
         if self.read_from == 'fake':
             if self.initialized:
                 filebytes = self.saved_filebytes
             else:
-                filebytes = self.saved_filebytes = np.fromfile(filepath, dtype=np.uint8)
+                filebytes = self.saved_filebytes = np.fromfile(meta_dict['filename'], dtype=np.uint8)
                 self.initialized = True
         elif self.read_from == 'mc':
             self._init_memcached()
             value = mc.pyvector()
-            self.mclient.Get(filepath, value)
+            self.mclient.Get(meta_dict['filename'], value)
             value_str = mc.ConvertBuffer(value)
             filebytes = np.frombuffer(value_str.tobytes(), dtype=np.uint8)
         elif self.read_from == 'ceph':
             self._init_ceph()
-            value = self.s3_client.Get(filepath)
+            value = self.s3_client.Get(meta_dict['filename'])
             filebytes = np.frombuffer(value, dtype=np.uint8)
         elif self.read_from == 'petrel':
             self._init_petrel()
-            value = self.client.Get(filepath)
+            value = self.client.Get(meta_dict['filename'])
             filebytes = np.frombuffer(value, dtype=np.uint8)
         elif self.read_from == 'fs':
-            filebytes = np.fromfile(filepath, dtype=np.uint8)
+            filebytes = np.fromfile(meta_dict['filename'], dtype=np.uint8)
+        elif self.read_from == 'osg':
+            self._init_osg()
+            img_str = self.osg_client.get_object(meta_dict['bucket'], meta_dict['key'])
+            filebytes = np.fromstring(img_str, np.uint8)
         else:
             raise RuntimeError("unknown value for read_from: {}".format(self.read_from))
 
