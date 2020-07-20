@@ -193,10 +193,11 @@ class ClsSolver(BaseSolver):
         self.model.train()
 
         label_smooth = self.config.get('label_smooth', 0.0)
-        num_classes = self.config.get('num_classes', 1000)
+        self.num_classes = self.config.model.kwargs.get('num_classes', 1000)
+        self.topk = 5 if self.num_classes >= 5 else self.num_classes
         if label_smooth > 0:
             self.logger.info('using label_smooth: {}'.format(label_smooth))
-            self.criterion = LabelSmoothCELoss(label_smooth, num_classes)
+            self.criterion = LabelSmoothCELoss(label_smooth, self.num_classes)
         else:
             self.criterion = torch.nn.CrossEntropyLoss()
         self.mixup = self.config.get('mixup', 1.0)
@@ -239,7 +240,7 @@ class ClsSolver(BaseSolver):
             else:
                 loss = self.criterion(logits, target) / self.dist.world_size
             # measure accuracy and record loss
-            prec1, prec5 = accuracy(logits, target, topk=(1, 5))
+            prec1, prec5 = accuracy(logits, target, topk=(1, self.topk))
 
             reduced_loss = loss.clone()
             reduced_prec1 = prec1.clone() / self.dist.world_size
