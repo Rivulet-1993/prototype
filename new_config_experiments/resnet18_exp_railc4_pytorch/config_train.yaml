@@ -1,0 +1,118 @@
+model:
+    type: resnet18
+    kwargs:
+        num_classes: 6
+        bn:
+            use_sync_bn: False
+            kwargs: {}
+
+dist:
+    sync: False
+
+optimizer:
+    type: SGD
+    kwargs:
+        nesterov: True
+        momentum: 0.9
+        weight_decay: 0.0001
+
+lr_scheduler:
+    type: Step
+    kwargs:
+        lr_steps: [5000, 8000, 12000]
+        lr_mults: [0.1, 0.1, 0.1]
+
+        base_lr: 0.0001
+        warmup_lr: 0.01
+        warmup_steps: 100
+        max_iter: 11100
+
+label_smooth: 0.1
+ema:
+    enable: False
+
+data:
+    type: custom
+    read_from: mc
+    image_reader: pil
+    batch_size: 64
+    num_workers: 2
+    pin_memory: True
+    input_size: 224
+    test_resize: 256
+
+    train:
+        root_dir: /mnt/lustrenew/yuankun/rail-prototype/railc4_data/
+        meta_file: /mnt/lustrenew/yuankun/rail-prototype/railc4_data/luoshuan_6_class_train_0618_up10_add_400_700.jsonl
+        sampler:
+            type: distributed_iteration
+        transforms:
+            - type: to_grayscale
+              kwargs:
+                  num_output_channels: 3
+            - type: adjust_gamma
+              kwargs:
+                  gamma: 1
+            - type: resize
+              kwargs:
+                  size: [224, 224]
+            - type: color_jitter
+              kwargs:
+                  brightness: 0.3
+                  contrast: 0.1
+                  saturation: 0.1
+            - type: random_orientation_rotation
+              kwargs:
+                  angles: [0, 90, 180, 270]
+            - type: random_horizontal_flip
+            - type: ramdom_vertical_flip
+            - type: to_tensor
+            - type: normalize
+              kwargs:
+                  mean: [0.485, 0.456, 0.406]
+                  std: [0.229, 0.224, 0.225]
+
+    test:
+        root_dir: /mnt/lustrenew/yuankun/rail-prototype/railc4_data/
+        meta_file: /mnt/lustrenew/yuankun/rail-prototype/railc4_data/luoshuan_6_class_test_0615.jsonl
+        sampler:
+            type: distributed
+        transforms:
+            - type: to_grayscale
+              kwargs:
+                  num_output_channels: 3
+            - type: adjust_gamma
+              kwargs:
+                  gamma: 1
+            - type: resize
+              kwargs:
+                  size: [224, 224]
+            - type: to_tensor
+            - type: normalize
+              kwargs:
+                  mean: [0.485, 0.456, 0.406]
+                  std: [0.229, 0.224, 0.225]
+        
+        evaluator:
+            type: custom
+            kwargs:
+                key_metric: fp@0.95recall
+                defect_classes: [3, 4]
+                recall_thres: [1.0, 0.95, 0.90, 0.8, 0.7]
+                tpr_thres: [0.99, 0.98, 0.97, 0.95, 0.9]
+
+print_freq: 10
+val_freq: 1000
+save_many: False
+
+to_kestrel:
+      add_softmax: True
+      model_name: KM_Classifier_RailwayC4_Kaikouxiao
+      version: '1.1.1'
+      class_label:
+        defect:
+          calculator: bypass
+          feature_start: 0
+          feature_end: 5
+          labels: ['销钉头', '其他', '模糊', '开口销断裂', '开口销未掰开', '开口销角度不到位']
+
