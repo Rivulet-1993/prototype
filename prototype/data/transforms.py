@@ -4,6 +4,7 @@ from PIL import ImageFilter
 import torch
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as TF
+import springvision
 
 
 class ToGrayscale(object):
@@ -71,7 +72,7 @@ class Cutout(object):
                 y2 = np.clip(y + self.length // 2, 0, h)
                 x1 = np.clip(x - self.length // 2, 0, w)
                 x2 = np.clip(x + self.length // 2, 0, w)
-                mask[y1: y2, x1: x2] = 0.
+                mask[y1:y2, x1:x2] = 0.
 
             mask = torch.from_numpy(mask)
             mask = mask.expand_as(img)
@@ -91,7 +92,7 @@ class RandomOrientationRotation(object):
         return TF.rotate(img, angle)
 
 
-transforms_info_dict = {
+torch_transforms_info_dict = {
     'resize': transforms.Resize,
     'center_crop': transforms.CenterCrop,
     'random_resized_crop': transforms.RandomResizedCrop,
@@ -105,15 +106,31 @@ transforms_info_dict = {
     'to_grayscale': ToGrayscale,
     'cutout': Cutout,
     'random_orientation_rotation': RandomOrientationRotation,
-    'gaussian_blur': GaussianBlur
+    'gaussian_blur': GaussianBlur,
+    'compose': transforms.Compose
 }
 
 
-def build_transformer(cfgs):
+kestrel_transforms_info_dict = {
+    'resize': springvision.Resize,
+    'center_corp': springvision.CenterCrop,
+    'normalize': springvision.Normalize,
+    'to_tensor': springvision.ToTensor,
+    'adjust_gamma': springvision.AdjustGamma,
+    'to_grayscale': springvision.ToGrayscale,
+    'compose': springvision.Compose
+}
+
+
+def build_transformer(cfgs, image_reader_type='pil'):
     transform_list = []
+    if image_reader_type == 'pil':
+        transforms_info_dict = torch_transforms_info_dict
+    else:
+        transforms_info_dict = kestrel_transforms_info_dict
     for cfg in cfgs:
         transform_type = transforms_info_dict[cfg['type']]
         kwargs = cfg['kwargs'] if 'kwargs' in cfg else {}
         transform = transform_type(**kwargs)
         transform_list.append(transform)
-    return transforms.Compose(transform_list)
+    return transforms_info_dict['compose'](transform_list)

@@ -1,19 +1,7 @@
 import os.path as osp
-import io
 import json
-from PIL import Image
-
 from .base_dataset import BaseDataset
-
-
-def pil_loader(img_bytes, filepath):
-    buff = io.BytesIO(img_bytes)
-    try:
-        with Image.open(buff) as img:
-            img = img.convert('RGB')
-    except IOError:
-        print('Failed in loading {}'.format(filepath))
-    return img
+from prototype.data.image_reader import build_image_reader
 
 
 class ImageNetDataset(BaseDataset):
@@ -26,17 +14,20 @@ class ImageNetDataset(BaseDataset):
         - transform (list of ``Transform`` objects): list of transforms
         - read_type (:obj:`str`): read type from the original meta_file
         - evaluator (:obj:`Evaluator`): evaluate to get metrics
+        - image_reader (:obj:`str`): reader type 'pil' or 'ks'
 
     Metafile example::
         "n01440764/n01440764_10026.JPEG 0\n"
     """
-    def __init__(self, root_dir, meta_file, transform=None, read_from='mc', evaluator=None):
+    def __init__(self, root_dir, meta_file, transform=None,
+                 read_from='mc', evaluator=None, image_reader='pil'):
 
         self.root_dir = root_dir
         self.meta_file = meta_file
         self.read_from = read_from
         self.transform = transform
         self.evaluator = evaluator
+        self.image_reader = build_image_reader(image_reader)
         self.initialized = False
 
         with open(meta_file) as f:
@@ -61,7 +52,7 @@ class ImageNetDataset(BaseDataset):
         filename = osp.join(self.root_dir, self.metas[idx][0])
         label = self.metas[idx][1]
         img_bytes = self.read_file(filename)
-        img = pil_loader(img_bytes, filename)
+        img = self.image_reader(img_bytes, filename)
 
         if self.transform is not None:
             img = self.transform(img)

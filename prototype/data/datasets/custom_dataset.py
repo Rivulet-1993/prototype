@@ -1,18 +1,7 @@
-from PIL import Image
 import json
-import io
 import os.path as osp
 from .base_dataset import BaseDataset
-
-
-def pil_loader(img_bytes, filepath):
-    buff = io.BytesIO(img_bytes)
-    try:
-        with Image.open(buff) as img:
-            img = img.convert('RGB')
-    except IOError:
-        print('Failed in loading {}'.format(filepath))
-    return img
+from prototype.data.image_reader import build_image_reader
 
 
 class CustomDataset(BaseDataset):
@@ -25,17 +14,20 @@ class CustomDataset(BaseDataset):
         - transform (list of ``Transform`` objects): list of transforms
         - read_from (:obj:`str`): read type from the original meta_file
         - evaluator (:obj:`Evaluator`): evaluate to get metrics
+        - image_reader (:obj:`str`): reader type 'pil' or 'ks'
 
     Metafile example::
         "{'filename': 'n01440764/n01440764_10026.JPEG', 'label': 0, 'label_name': 'dog'}\n"
     """
-    def __init__(self, root_dir, meta_file, transform=None, read_from='mc', evaluator=None):
+    def __init__(self, root_dir, meta_file, transform=None,
+                 read_from='mc', evaluator=None, image_reader='pil'):
 
         self.root_dir = root_dir
         self.meta_file = meta_file
         self.read_from = read_from
         self.transform = transform
         self.evaluator = evaluator
+        self.image_reader = build_image_reader(image_reader)
         self.initialized = False
 
         with open(meta_file) as f:
@@ -61,7 +53,7 @@ class CustomDataset(BaseDataset):
         label = self.metas[idx][1]
         label_name = self.metas[idx][2]
         img_bytes = self.read_file(filename)
-        img = pil_loader(img_bytes, filename)
+        img = self.image_reader(img_bytes, filename)
 
         if self.transform is not None:
             img = self.transform(img)
