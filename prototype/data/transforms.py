@@ -110,6 +110,7 @@ torch_transforms_info_dict = {
     'compose': transforms.Compose
 }
 
+
 kestrel_transforms_info_dict = {
     'resize': springvision.Resize,
     'center_corp': springvision.CenterCrop,
@@ -128,7 +129,6 @@ def build_transformer(cfgs, image_reader_type='pil'):
     else:
         transforms_info_dict = kestrel_transforms_info_dict
     for cfg in cfgs:
-        print(cfg)
         transform_type = transforms_info_dict[cfg['type']]
         kwargs = cfg['kwargs'] if 'kwargs' in cfg else {}
         transform = transform_type(**kwargs)

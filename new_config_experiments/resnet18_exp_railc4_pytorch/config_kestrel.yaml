@@ -42,8 +42,8 @@ data:
     test_resize: 256
 
     train:
-        root_dir: /mnt/lustre/hezheqi/data/railc4_data 
-        meta_file: /mnt/lustre/hezheqi/data/railc4_data/luoshuan_6_class_train_0618_up10_add_400_700.jsonl
+        root_dir: /mnt/lustrenew/yuankun/rail-prototype/railc4_data/ 
+        meta_file: /mnt/lustrenew/yuankun/rail-prototype/railc4_data/luoshuan_6_class_train_0618_up10_add_400_700.jsonl
         sampler:
             type: distributed_iteration
         transforms:
@@ -73,8 +73,8 @@ data:
                   std: [0.229, 0.224, 0.225]
 
     test:
-        root_dir: /mnt/lustre/hezheqi/data/railc4_data 
-        meta_file: /mnt/lustre/hezheqi/data/railc4_data/luoshuan_6_class_test_0615.jsonl
+        root_dir: /mnt/lustrenew/yuankun/rail-prototype/railc4_data/
+        meta_file: /mnt/lustrenew/yuankun/rail-prototype/railc4_data/luoshuan_6_class_test_0615.jsonl
         sampler:
             type: distributed
         transforms:

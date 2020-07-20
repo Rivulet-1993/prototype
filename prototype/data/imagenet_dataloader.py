@@ -14,8 +14,8 @@ def build_common_augmentation(aug_type):
     """
     common augmentation settings for training/testing ImageNet
     """
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+    normalize = transforms.Normalize(
+        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     if aug_type == 'STANDARD':
         augmentation = [
             transforms.RandomResizedCrop(224),
@@ -37,17 +37,18 @@ def build_common_augmentation(aug_type):
             transforms.RandomGrayscale(p=0.2),
             transforms.ColorJitter(0.4, 0.4, 0.4, 0.4),
             transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(), normalize
+            transforms.ToTensor(),
+            normalize
         ]
     elif aug_type == 'MOCOV2' or aug_type == 'SIMCLR':
         augmentation = [
             transforms.RandomResizedCrop(224, scale=(0.2, 1.)),
-            transforms.RandomApply(
-                [transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
+            transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
             transforms.RandomGrayscale(p=0.2),
             transforms.RandomApply([GaussianBlur([.1, 2.])], p=0.5),
             transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(), normalize
+            transforms.ToTensor(),
+            normalize
         ]
     elif aug_type == 'LINEAR':
         augmentation = [
@@ -80,22 +81,27 @@ def build_imagenet_train_dataloader(cfg_dataset, data_type='train'):
     # build dataset
     if cfg_dataset['use_dali']:
         # NVIDIA dali preprocessing
-        assert cfg_train['transforms'][
-            'type'] == 'STANDARD', 'only support standard augmentation'
-        dataset = ImageNetDataset(root_dir=cfg_train['root_dir'],
-                                  meta_file=cfg_train['meta_file'],
-                                  read_from=cfg_dataset['read_from'])
+        assert cfg_train['transforms']['type'] == 'STANDARD', 'only support standard augmentation'
+        dataset = ImageNetDataset(
+            root_dir=cfg_train['root_dir'],
+            meta_file=cfg_train['meta_file'],
+            read_from=cfg_dataset['read_from'],
+            image_reader=cfg_dataset.get('image_reader', 'pil')
+        )
     else:
         # PyTorch data preprocessing
         if isinstance(cfg_train['transforms'], list):
-            transformer = build_transformer(cfg_train['transforms'])
+            transformer = build_transformer(cfgs=cfg_train['transforms'],
+                                            image_reader_type=cfg_dataset.get('image_reader', 'pil'))
         else:
-            transformer = build_common_augmentation(
-                cfg_train['transforms']['type'])
-        dataset = ImageNetDataset(root_dir=cfg_train['root_dir'],
-                                  meta_file=cfg_train['meta_file'],
-                                  transform=transformer,
-                                  read_from=cfg_dataset['read_from'])
+            transformer = build_common_augmentation(cfg_train['transforms']['type'])
+        dataset = ImageNetDataset(
+            root_dir=cfg_train['root_dir'],
+            meta_file=cfg_train['meta_file'],
+            transform=transformer,
+            read_from=cfg_dataset['read_from'],
+            image_reader=cfg_dataset.get('image_reader', 'pil')
+        )
     # build sampler
     cfg_train['sampler']['kwargs'] = {}
     if cfg_train['sampler']['type'] == 'distributed':
@@ -112,24 +118,30 @@ def build_imagenet_train_dataloader(cfg_dataset, data_type='train'):
     # build dataloader
     if cfg_dataset['use_dali']:
         # NVIDIA dali pipeline
-        pipeline = ImageNetTrainPipeV2(data_root=cfg_train['root_dir'],
-                                       data_list=cfg_train['meta_file'],
-                                       sampler=sampler,
-                                       crop=cfg_dataset['input_size'],
-                                       colorjitter=[0.2, 0.2, 0.2, 0.1])
-        loader = DaliDataloader(pipeline=pipeline,
-                                batch_size=cfg_dataset['batch_size'],
-                                epoch_size=len(sampler),
-                                num_threads=cfg_dataset['num_workers'],
-                                last_iter=cfg_dataset['last_iter'])
+        pipeline = ImageNetTrainPipeV2(
+            data_root=cfg_train['root_dir'],
+            data_list=cfg_train['meta_file'],
+            sampler=sampler,
+            crop=cfg_dataset['input_size'],
+            colorjitter=[0.2, 0.2, 0.2, 0.1]
+        )
+        loader = DaliDataloader(
+            pipeline=pipeline,
+            batch_size=cfg_dataset['batch_size'],
+            epoch_size=len(sampler),
+            num_threads=cfg_dataset['num_workers'],
+            last_iter=cfg_dataset['last_iter']
+        )
     else:
         # PyTorch dataloader
-        loader = DataLoader(dataset=dataset,
-                            batch_size=cfg_dataset['batch_size'],
-                            shuffle=False,
-                            num_workers=cfg_dataset['num_workers'],
-                            pin_memory=True,
-                            sampler=sampler)
+        loader = DataLoader(
+            dataset=dataset,
+            batch_size=cfg_dataset['batch_size'],
+            shuffle=False,
+            num_workers=cfg_dataset['num_workers'],
+            pin_memory=True,
+            sampler=sampler
+        )
     return {'type': 'train', 'loader': loader}
 
 
@@ -144,27 +156,28 @@ def build_imagenet_test_dataloader(cfg_dataset, data_type='test'):
         evaluator = build_evaluator(cfg_test['evaluator'])
     if cfg_dataset['use_dali']:
         # NVIDIA dali preprocessing
-        assert cfg_test['transforms'][
-            'type'] == 'ONECROP', 'only support onecrop augmentation'
+        assert cfg_test['transforms']['type'] == 'ONECROP', 'only support onecrop augmentation'
         dataset = ImageNetDataset(
             root_dir=cfg_test['root_dir'],
             meta_file=cfg_test['meta_file'],
             read_from=cfg_dataset['read_from'],
             evaluator=evaluator,
+            image_reader=cfg_dataset.get('image_reader', 'pil'),
         )
     else:
         # PyTorch data preprocessing
         if isinstance(cfg_test['transforms'], list):
-            transformer = build_transformer(cfg_test['transforms'])
+            transformer = build_transformer(cfgs=cfg_test['transforms'],
+                                            image_reader_type=cfg_dataset.get('image_reader', 'pil'))
         else:
-            transformer = build_common_augmentation(
-                cfg_test['transforms']['type'])
+            transformer = build_common_augmentation(cfg_test['transforms']['type'])
         dataset = ImageNetDataset(
             root_dir=cfg_test['root_dir'],
             meta_file=cfg_test['meta_file'],
             transform=transformer,
             read_from=cfg_dataset['read_from'],
             evaluator=evaluator,
+            image_reader=cfg_dataset.get('image_reader', 'pil'),
         )
     # build sampler
     assert cfg_test['sampler'].get('type', 'distributed') == 'distributed'
@@ -189,12 +202,14 @@ def build_imagenet_test_dataloader(cfg_dataset, data_type='test'):
         )
     else:
         # PyTorch dataloader
-        loader = DataLoader(dataset=dataset,
-                            batch_size=cfg_dataset['batch_size'],
-                            shuffle=False,
-                            num_workers=cfg_dataset['num_workers'],
-                            pin_memory=cfg_dataset['pin_memory'],
-                            sampler=sampler)
+        loader = DataLoader(
+            dataset=dataset,
+            batch_size=cfg_dataset['batch_size'],
+            shuffle=False,
+            num_workers=cfg_dataset['num_workers'],
+            pin_memory=cfg_dataset['pin_memory'],
+            sampler=sampler
+        )
     return {'type': 'test', 'loader': loader}
 
 
@@ -206,29 +221,29 @@ def build_imagenet_search_dataloader(cfg_dataset, data_type='search'):
     # build dataset
     if cfg_dataset['use_dali']:
         # NVIDIA dali preprocessing
-        assert cfg_search['transforms'][
-            'type'] == 'ONECROP', 'only support onecrop augmentation'
+        assert cfg_search['transforms']['type'] == 'ONECROP', 'only support onecrop augmentation'
         dataset = ImageNetDataset(
             root_dir=cfg_search['root_dir'],
             meta_file=cfg_search['meta_file'],
             read_from=cfg_dataset['read_from'],
+            image_reader=cfg_dataset.get('image_reader', 'pil'),
         )
     else:
         # PyTorch data preprocessing
         if isinstance(cfg_search['transforms'], list):
-            transformer = build_transformer(cfg_search['transforms'])
+            transformer = build_transformer(cfgs=cfg_search['transforms'],
+                                            image_reader_type=cfg_dataset.get('image_reader', 'pil'))
         else:
-            transformer = build_common_augmentation(
-                cfg_search['transforms']['type'])
+            transformer = build_common_augmentation(cfg_search['transforms']['type'])
         dataset = ImageNetDataset(
             root_dir=cfg_search['root_dir'],
             meta_file=cfg_search['meta_file'],
             transform=transformer,
             read_from=cfg_dataset['read_from'],
+            image_reader=cfg_dataset.get('image_reader', 'pil'),
         )
     # build sampler
-    assert cfg_search['sampler'].get('type',
-                                     'given_iteration') == 'given_iteration'
+    assert cfg_search['sampler'].get('type', 'given_iteration') == 'given_iteration'
     cfg_search['sampler']['kwargs'] = {
         'dataset': dataset,
         'batch_size': cfg_dataset['batch_size'],
@@ -254,10 +269,12 @@ def build_imagenet_search_dataloader(cfg_dataset, data_type='search'):
         )
     else:
         # PyTorch dataloader
-        loader = DataLoader(dataset=dataset,
-                            batch_size=cfg_dataset['batch_size'],
-                            shuffle=False,
-                            num_workers=cfg_dataset['num_workers'],
-                            pin_memory=cfg_dataset['pin_memory'],
-                            sampler=sampler)
+        loader = DataLoader(
+            dataset=dataset,
+            batch_size=cfg_dataset['batch_size'],
+            shuffle=False,
+            num_workers=cfg_dataset['num_workers'],
+            pin_memory=cfg_dataset['pin_memory'],
+            sampler=sampler
+        )
     return {'type': data_type, 'loader': loader}

@@ -1,6 +1,4 @@
-from PIL import Image
 import json
-import io
 import os.path as osp
 from .base_dataset import BaseDataset
 from prototype.data.image_reader import build_image_reader
@@ -16,11 +14,13 @@ class CustomDataset(BaseDataset):
         - transform (list of ``Transform`` objects): list of transforms
         - read_from (:obj:`str`): read type from the original meta_file
         - evaluator (:obj:`Evaluator`): evaluate to get metrics
+        - image_reader (:obj:`str`): reader type 'pil' or 'ks'
 
     Metafile example::
         "{'filename': 'n01440764/n01440764_10026.JPEG', 'label': 0, 'label_name': 'dog'}\n"
     """
-    def __init__(self, root_dir, meta_file, transform=None, read_from='mc', evaluator=None, image_reader='pil'):
+    def __init__(self, root_dir, meta_file, transform=None,
+                 read_from='mc', evaluator=None, image_reader='pil'):
 
         self.root_dir = root_dir
         self.meta_file = meta_file
