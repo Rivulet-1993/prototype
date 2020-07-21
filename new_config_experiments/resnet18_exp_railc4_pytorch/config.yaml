@@ -1,4 +1,4 @@
-model:zzzzz
+model:
     type: resnet18
     kwargs:
         num_classes: 6
