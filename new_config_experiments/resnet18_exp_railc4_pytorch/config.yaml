@@ -118,12 +118,17 @@ saver:
     #             - module.fc.bias
 
 to_kestrel:
-      add_softmax: True
-      model_name: KM_Classifier_RailwayC4_Kaikouxiao
-      version: '1.1.1'
-      class_label:
+    model_name: KM_Classifier_RailwayC4_Kaikouxiao
+    version: '1.1.1'
+    add_softmax: True
+    pixel_means: [124.16, 116.736, 103.936]
+    pixel_stds: [58.624, 57.344, 57.6]
+    is_rgb: True
+    save_all_label: True
+    type: 'UNKNOWN'
+    class_label:
         defect:
-          calculator: bypass
-          feature_start: 0
-          feature_end: 5
-          labels: ['销钉头', '其他', '模糊', '开口销断裂', '开口销未掰开', '开口销角度不到位']
+            calculator: 'bypass'
+            start: 0
+            end: 5
+            labels: ['apple', 'banana', 'orange', 'dog', 'cat', 'car']
