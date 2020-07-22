@@ -28,6 +28,7 @@ lr_scheduler:
         max_iter: 8000
 
 label_smooth: 0.1
+# mixup: 0.2
 ema:
     enable: False
 
@@ -35,7 +36,7 @@ data:
     type: custom
     read_from: mc
     batch_size: 64
-    num_workers: 2
+    num_workers: 4
     pin_memory: True
     input_size: 224
     test_resize: 256
@@ -102,9 +103,19 @@ data:
                 recall_thres: [1.0, 0.95, 0.90, 0.8, 0.7]
                 tpr_thres: [0.99, 0.98, 0.97, 0.95, 0.9]
 
-print_freq: 10
-val_freq: 1000
-save_many: False
+saver:
+    print_freq: 10
+    val_freq: 1000
+    save_many: False
+    # pretrain:
+    #     path: /mnt/lustre/share/prototype_model_zoo/resnet18_batch1k_epoch100_nesterov_wd0.0001/checkpoints/ckpt.pth.tar
+    #     ignore:
+    #         key:
+    #             - optimizer
+    #             - last_iter
+    #         model:
+    #             - module.fc.weight
+    #             - module.fc.bias
 
 to_kestrel:
       add_softmax: True
@@ -116,4 +127,3 @@ to_kestrel:
           feature_start: 0
           feature_end: 5
           labels: ['销钉头', '其他', '模糊', '开口销断裂', '开口销未掰开', '开口销角度不到位']
-

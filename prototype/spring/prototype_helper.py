@@ -18,7 +18,7 @@ import torch.nn.functional as F
 from prototype.utils.dist import DistModule, broadcast_object
 from prototype.utils.misc import (
     makedir, create_logger, load_state_model, get_logger, count_params, count_flops,
-    param_group_all, AverageMeter, accuracy
+    param_group_all, AverageMeter, accuracy, modify_state
 )
 from prototype.utils.ema import EMA
 from prototype.model import model_entry
@@ -90,13 +90,23 @@ class PrototypeHelper(SpringCommonInterface):
         torch.backends.cudnn.benchmark = True
 
     def _resume(self, ckpt_dict=None):
+        '''
+        The ckpt_dict owns higher priority than element's resuming
+        '''
         if ckpt_dict:
             self.state = ckpt_dict
             self.curr_step = self.state['last_iter']
-            self.logger.info(f'f"======= recovering from ckpt_dict, keys={list(self.state.keys())}... ======="')
+            self.logger.info(f"Recovering from ckpt_dict, keys={list(self.state.keys())}")
         else:
-            self.state = {'last_iter': 0}
-            self.curr_step = 0
+            # load pretrain
+            if hasattr(self.config.saver, 'pretrain'):
+                self.state = torch.load(self.config.saver.pretrain.path, 'cpu')
+                self.logger.info(f"Recovering from {self.config.saver.pretrain.path}, keys={list(self.state.keys())}")
+                if hasattr(self.config.saver.pretrain, 'ignore'):
+                    self.state = modify_state(self.state, self.config.saver.pretrain.ignore)
+            else:
+                self.state = {'last_iter': 0}
+                self.curr_step = 0
 
     def _build(self):
         self.build_model()
@@ -219,12 +229,12 @@ class PrototypeHelper(SpringCommonInterface):
 
     def _pre_train(self):
         self.meters = EasyDict()
-        self.meters.batch_time = AverageMeter(self.config.print_freq)
-        self.meters.step_time = AverageMeter(self.config.print_freq)
-        self.meters.data_time = AverageMeter(self.config.print_freq)
-        self.meters.losses = AverageMeter(self.config.print_freq)
-        self.meters.top1 = AverageMeter(self.config.print_freq)
-        self.meters.top5 = AverageMeter(self.config.print_freq)
+        self.meters.batch_time = AverageMeter(self.config.saver.print_freq)
+        self.meters.step_time = AverageMeter(self.config.saver.print_freq)
+        self.meters.data_time = AverageMeter(self.config.saver.print_freq)
+        self.meters.losses = AverageMeter(self.config.saver.print_freq)
+        self.meters.top1 = AverageMeter(self.config.saver.print_freq)
+        self.meters.top5 = AverageMeter(self.config.saver.print_freq)
 
         self.model.train()
 
@@ -473,7 +483,7 @@ class PrototypeHelper(SpringCommonInterface):
 
                 self.logger.info(log_msg)
 
-            if curr_step > 0 and curr_step % self.config.val_freq == 0:
+            if curr_step > 0 and curr_step % self.config.saver.val_freq == 0:
                 metrics = self.evaluate()
                 if self.ema is not None:
                     self.ema.load_ema(self.model)
@@ -490,7 +500,7 @@ class PrototypeHelper(SpringCommonInterface):
 
                 # save ckpt
                 if self.dist.rank == 0:
-                    if self.config.save_many:
+                    if self.config.saver.save_many:
                         ckpt_name = f'{self.path.save_path}/ckpt_{curr_step}.pth.tar'
                     else:
                         ckpt_name = f'{self.path.save_path}/ckpt.pth.tar'

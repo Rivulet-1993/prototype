@@ -27,9 +27,8 @@ from prototype.utils.user_analysis_helper import send_info
 
 class ClsSolver(BaseSolver):
 
-    def __init__(self, config_file, recover=''):
+    def __init__(self, config_file):
         self.config_file = config_file
-        self.recover = recover
         self.prototype_info = EasyDict()
         self.config = parse_config(config_file)
         self.setup_env()
@@ -62,12 +61,12 @@ class ClsSolver(BaseSolver):
         self.logger.info(f'config: {pprint.pformat(self.config)}')
         if 'SLURM_NODELIST' in os.environ:
             self.logger.info(f"hostnames: {os.environ['SLURM_NODELIST']}")
-        # recover
-        if self.recover:
-            self.state = torch.load(self.recover, 'cpu')
-            self.logger.info(f"======= recovering from {self.recover}, keys={list(self.state.keys())}... =======")
-            if hasattr(self.config, 'ignore'):
-                self.state = modify_state(self.state, self.config.ignore)
+        # load pretrain checkpoint
+        if hasattr(self.config.saver, 'pretrain'):
+            self.state = torch.load(self.config.saver.pretrain.path, 'cpu')
+            self.logger.info(f"Recovering from {self.config.saver.pretrain.path}, keys={list(self.state.keys())}")
+            if hasattr(self.config.saver.pretrain, 'ignore'):
+                self.state = modify_state(self.state, self.config.saver.pretrain.ignore)
         else:
             self.state = {}
             self.state['last_iter'] = 0
@@ -183,12 +182,12 @@ class ClsSolver(BaseSolver):
 
     def pre_train(self):
         self.meters = EasyDict()
-        self.meters.batch_time = AverageMeter(self.config.print_freq)
-        self.meters.step_time = AverageMeter(self.config.print_freq)
-        self.meters.data_time = AverageMeter(self.config.print_freq)
-        self.meters.losses = AverageMeter(self.config.print_freq)
-        self.meters.top1 = AverageMeter(self.config.print_freq)
-        self.meters.top5 = AverageMeter(self.config.print_freq)
+        self.meters.batch_time = AverageMeter(self.config.saver.print_freq)
+        self.meters.step_time = AverageMeter(self.config.saver.print_freq)
+        self.meters.data_time = AverageMeter(self.config.saver.print_freq)
+        self.meters.losses = AverageMeter(self.config.saver.print_freq)
+        self.meters.top1 = AverageMeter(self.config.saver.print_freq)
+        self.meters.top5 = AverageMeter(self.config.saver.print_freq)
 
         self.model.train()
 
@@ -277,7 +276,7 @@ class ClsSolver(BaseSolver):
             self.meters.batch_time.update(time.time() - end)
 
             # training logger
-            if curr_step % self.config.print_freq == 0 and self.dist.rank == 0:
+            if curr_step % self.config.saver.print_freq == 0 and self.dist.rank == 0:
                 self.tb_logger.add_scalar('loss_train', self.meters.losses.avg, curr_step)
                 self.tb_logger.add_scalar('acc1_train', self.meters.top1.avg, curr_step)
                 self.tb_logger.add_scalar('acc5_train', self.meters.top5.avg, curr_step)
@@ -296,7 +295,7 @@ class ClsSolver(BaseSolver):
                 self.logger.info(log_msg)
 
             # testing during training
-            if curr_step > 0 and curr_step % self.config.val_freq == 0:
+            if curr_step > 0 and curr_step % self.config.saver.val_freq == 0:
                 metrics = self.evaluate()
                 if self.ema is not None:
                     self.ema.load_ema(self.model)
@@ -313,7 +312,7 @@ class ClsSolver(BaseSolver):
 
                 # save ckpt
                 if self.dist.rank == 0:
-                    if self.config.save_many:
+                    if self.config.saver.save_many:
                         ckpt_name = f'{self.path.save_path}/ckpt_{curr_step}.pth.tar'
                     else:
                         ckpt_name = f'{self.path.save_path}/ckpt.pth.tar'
@@ -366,16 +365,15 @@ class ClsSolver(BaseSolver):
 def main():
     parser = argparse.ArgumentParser(description='Classification Solver')
     parser.add_argument('--config', required=True, type=str)
-    parser.add_argument('--recover', type=str, default='')
     parser.add_argument('--evaluate', action='store_true')
 
     args = parser.parse_args()
-    # build or recover solver
-    solver = ClsSolver(args.config, recover=args.recover)
+    # build solver
+    solver = ClsSolver(args.config)
     # evaluate or train
     if args.evaluate:
-        if not args.recover:
-            solver.logger.warn('Evaluating without recovring any solver checkpoints.')
+        if not hasattr(solver.config.saver, 'pretrain'):
+            solver.logger.warn('Evaluating without resuming any solver checkpoints.')
         solver.evaluate()
         if solver.ema is not None:
             solver.ema.load_ema(solver.model)
