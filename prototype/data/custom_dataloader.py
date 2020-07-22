@@ -14,8 +14,9 @@ def build_custom_dataloader(data_type, cfg_dataset):
     """
     assert data_type in cfg_dataset
     # build transformer
+    image_reader = cfg_dataset[data_type].get('image_reader', {})
     transformer = build_transformer(cfgs=cfg_dataset[data_type]['transforms'],
-                                    image_reader_type=cfg_dataset[data_type].get('image_reader', 'pil'))
+                                    image_reader=image_reader)
     # build evaluator
     evaluator = None
     if data_type == 'test' and cfg_dataset[data_type].get('evaluator', None):
@@ -28,7 +29,7 @@ def build_custom_dataloader(data_type, cfg_dataset):
             transform=transformer,
             read_from='osg',
             evaluator=evaluator,
-            image_reader=cfg_dataset[data_type].get('image_reader', 'pil'),
+            image_reader_type=image_reader.get('type', 'pil'),
             osg_server=cfg_dataset[data_type]['osg_server'],
         )
     else:
@@ -38,7 +39,7 @@ def build_custom_dataloader(data_type, cfg_dataset):
             transform=transformer,
             read_from=cfg_dataset['read_from'],
             evaluator=evaluator,
-            image_reader=cfg_dataset[data_type].get('image_reader', 'pil')
+            image_reader_type=image_reader.get('type', 'pil')
         )
     # initialize kwargs of sampler
     cfg_dataset[data_type]['sampler']['kwargs'] = {}

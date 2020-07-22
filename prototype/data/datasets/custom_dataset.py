@@ -21,7 +21,7 @@ class CustomDataset(BaseDataset):
         "{'filename': 'n01440764/n01440764_10026.JPEG', 'label': 0, 'label_name': 'dog'}\n"
     """
     def __init__(self, root_dir, meta_file, transform=None,
-                 read_from='mc', evaluator=None, image_reader='pil',
+                 read_from='mc', evaluator=None, image_reader_type='pil',
                  osg_server=None):
 
         self.root_dir = root_dir
@@ -29,7 +29,7 @@ class CustomDataset(BaseDataset):
         self.read_from = read_from
         self.transform = transform
         self.evaluator = evaluator
-        self.image_reader = build_image_reader(image_reader)
+        self.image_reader = build_image_reader(image_reader_type)
         self.osg_server = osg_server
         self.initialized = False
 

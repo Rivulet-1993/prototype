@@ -44,7 +44,8 @@ data:
     train:
         root_dir: /mnt/lustrenew/yuankun/rail-prototype/railc4_data/ 
         meta_file: /mnt/lustrenew/yuankun/rail-prototype/railc4_data/luoshuan_6_class_train_0618_up10_add_400_700.jsonl
-        image_reader: pil
+        image_reader:
+            type: pil
         sampler:
             type: distributed_iteration
         transforms:
@@ -76,7 +77,10 @@ data:
     test:
         root_dir: /mnt/lustrenew/yuankun/rail-prototype/railc4_data/
         meta_file: /mnt/lustrenew/yuankun/rail-prototype/railc4_data/luoshuan_6_class_test_0615.jsonl
-        image_reader: kestrel
+        image_reader:
+            type: kestrel     # normalize should in [0, 255], the same with kestrel classifier
+            # type: pil       # normalize should in [0, 1]
+            use_gpu: false    # if kestrel_caffe, True; if kestrel_ppl/nnie, False; if True, num_workers should be 0
         sampler:
             type: distributed
         transforms:
@@ -89,11 +93,13 @@ data:
             - type: resize
               kwargs:
                   size: [224, 224]
+            - type: to_tensor
             - type: normalize
               kwargs:
                   mean: [124.16, 116.736, 103.936]
                   std: [58.624, 57.344, 57.6]
-            - type: to_tensor
+                #   mean: [0.485, 0.456, 0.406]
+                #   std: [0.229, 0.224, 0.225]
 
         evaluator:
             type: custom
@@ -131,4 +137,4 @@ to_kestrel:
             calculator: 'bypass'
             start: 0
             end: 5
-            labels: ['apple', 'banana', 'orange', 'dog', 'cat', 'car']
+            labels: ['apple', 'banana', 'orange', 'dog', 'cat', 'bird']

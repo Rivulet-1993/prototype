@@ -20,14 +20,14 @@ class ImageNetDataset(BaseDataset):
         "n01440764/n01440764_10026.JPEG 0\n"
     """
     def __init__(self, root_dir, meta_file, transform=None,
-                 read_from='mc', evaluator=None, image_reader='pil'):
+                 read_from='mc', evaluator=None, image_reader_type='pil'):
 
         self.root_dir = root_dir
         self.meta_file = meta_file
         self.read_from = read_from
         self.transform = transform
         self.evaluator = evaluator
-        self.image_reader = build_image_reader(image_reader)
+        self.image_reader = build_image_reader(image_reader_type)
         self.initialized = False
 
         with open(meta_file) as f:

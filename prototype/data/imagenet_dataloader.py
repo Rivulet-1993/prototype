@@ -88,10 +88,11 @@ def build_imagenet_train_dataloader(cfg_dataset, data_type='train'):
             read_from=cfg_dataset['read_from'],
         )
     else:
+        image_reader = cfg_dataset[data_type].get('image_reader', {})
         # PyTorch data preprocessing
         if isinstance(cfg_train['transforms'], list):
             transformer = build_transformer(cfgs=cfg_train['transforms'],
-                                            image_reader_type=cfg_dataset['train'].get('image_reader', 'pil'))
+                                            image_reader=image_reader)
         else:
             transformer = build_common_augmentation(cfg_train['transforms']['type'])
         dataset = ImageNetDataset(
@@ -99,7 +100,7 @@ def build_imagenet_train_dataloader(cfg_dataset, data_type='train'):
             meta_file=cfg_train['meta_file'],
             transform=transformer,
             read_from=cfg_dataset['read_from'],
-            image_reader=cfg_dataset['train'].get('image_reader', 'pil')
+            image_reader_type=image_reader.get('type', 'pil'),
         )
     # build sampler
     cfg_train['sampler']['kwargs'] = {}
@@ -163,10 +164,11 @@ def build_imagenet_test_dataloader(cfg_dataset, data_type='test'):
             evaluator=evaluator,
         )
     else:
+        image_reader = cfg_dataset[data_type].get('image_reader', {})
         # PyTorch data preprocessing
         if isinstance(cfg_test['transforms'], list):
             transformer = build_transformer(cfgs=cfg_test['transforms'],
-                                            image_reader_type=cfg_dataset['test'].get('image_reader', 'pil'))
+                                            image_reader=image_reader)
         else:
             transformer = build_common_augmentation(cfg_test['transforms']['type'])
         dataset = ImageNetDataset(
@@ -175,7 +177,7 @@ def build_imagenet_test_dataloader(cfg_dataset, data_type='test'):
             transform=transformer,
             read_from=cfg_dataset['read_from'],
             evaluator=evaluator,
-            image_reader=cfg_dataset['test'].get('image_reader', 'pil'),
+            image_reader_type=image_reader.get('type', 'pil'),
         )
     # build sampler
     assert cfg_test['sampler'].get('type', 'distributed') == 'distributed'
@@ -226,10 +228,11 @@ def build_imagenet_search_dataloader(cfg_dataset, data_type='search'):
             read_from=cfg_dataset['read_from'],
         )
     else:
+        image_reader = cfg_dataset[data_type].get('image_reader', {})
         # PyTorch data preprocessing
         if isinstance(cfg_search['transforms'], list):
             transformer = build_transformer(cfgs=cfg_search['transforms'],
-                                            image_reader_type=cfg_dataset['search'].get('image_reader', 'pil'))
+                                            image_reader=image_reader)
         else:
             transformer = build_common_augmentation(cfg_search['transforms']['type'])
         dataset = ImageNetDataset(
@@ -237,7 +240,7 @@ def build_imagenet_search_dataloader(cfg_dataset, data_type='search'):
             meta_file=cfg_search['meta_file'],
             transform=transformer,
             read_from=cfg_dataset['read_from'],
-            image_reader=cfg_dataset['search'].get('image_reader', 'pil'),
+            image_reader_type=image_reader.get('type', 'pil'),
         )
     # build sampler
     assert cfg_search['sampler'].get('type', 'given_iteration') == 'given_iteration'

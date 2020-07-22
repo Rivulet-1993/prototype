@@ -122,12 +122,16 @@ kestrel_transforms_info_dict = {
 }
 
 
-def build_transformer(cfgs, image_reader_type='pil'):
+def build_transformer(cfgs, image_reader={}):
     transform_list = []
+    image_reader_type = image_reader.get('type', 'pil')
     if image_reader_type == 'pil':
         transforms_info_dict = torch_transforms_info_dict
     else:
         transforms_info_dict = kestrel_transforms_info_dict
+        if image_reader.get('use_gpu', False):
+            springvision.KestrelDevice.bind('cuda', torch.cuda.current_device())
+
     for cfg in cfgs:
         transform_type = transforms_info_dict[cfg['type']]
         kwargs = cfg['kwargs'] if 'kwargs' in cfg else {}
