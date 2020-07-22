@@ -21,6 +21,8 @@ def kestrel_loader(img_bytes, filepath):
     try:
         image_data = img_bytes.tobytes()
         input_frame.create_from_mem(image_data, len(image_data))
+        if ks.Device().mem_type() == ks.KESTREL_MEM_DEVICE:
+            input_frame = input_frame.upload()
     except IOError:
         logger.info('Failed in loading {}'.format(filepath))
     return [input_frame]
