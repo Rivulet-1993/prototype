@@ -16,7 +16,7 @@ import linklink as link
 import torch.nn.functional as F
 # import from prototype
 from prototype.utils.dist import DistModule, broadcast_object
-from prototype.utils.misc import (
+from prototype.utils.misc import ( # noqa
     makedir, create_logger, load_state_model, get_logger, count_params, count_flops,
     param_group_all, AverageMeter, accuracy, modify_state, load_state_optimizer
 )
