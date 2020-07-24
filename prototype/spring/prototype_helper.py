@@ -18,7 +18,7 @@ import torch.nn.functional as F
 from prototype.utils.dist import DistModule, broadcast_object
 from prototype.utils.misc import (
     makedir, create_logger, load_state_model, get_logger, count_params, count_flops,
-    param_group_all, AverageMeter, accuracy, modify_state
+    param_group_all, AverageMeter, accuracy, modify_state, load_state_optimizer
 )
 from prototype.utils.ema import EMA
 from prototype.model import model_entry
@@ -64,6 +64,7 @@ class PrototypeHelper(SpringCommonInterface):
         self._resume(ckpt_dict)
         self._build()
         self._pre_train()
+        self.end_time = time.time()
 
     def _setup_env(self):
         # distribution information
@@ -110,7 +111,7 @@ class PrototypeHelper(SpringCommonInterface):
 
     def _build(self):
         self.build_model()
-        self._build_optimzier()
+        self._build_optimizer()
         self._build_data()
         self._build_lr_scheduler()
 
@@ -164,7 +165,7 @@ class PrototypeHelper(SpringCommonInterface):
         self.model = DistModule(self.model, self.config.dist.sync)
         return self.model
 
-    def _build_optimzier(self):
+    def _build_optimizer(self):
         opt_config = self.config.optimizer
         opt_config.kwargs.lr = self.config.lr_scheduler.kwargs.base_lr
         # divide param_groups
@@ -180,8 +181,8 @@ class PrototypeHelper(SpringCommonInterface):
         opt_config.kwargs.params = param_group
         self.optimizer = optim_entry(opt_config)
         # load optimizer
-        if 'optimzier' in self.state:
-            load_state_model(self.optimizer, self.state['optimizer'])
+        if 'optimizer' in self.state:
+            load_state_optimizer(self.optimizer, self.state['optimizer'])
         # EMA
         if self.config.ema.enable:
             self.config.ema.kwargs.model = self.model
@@ -203,24 +204,22 @@ class PrototypeHelper(SpringCommonInterface):
         self.config.data.last_iter = self.state['last_iter']
         self.data_loaders = {}
         for data_type in self.config.data.keys():
-            assert data_type in ['train', 'test', 'arch']
-            if self.config.data.type == 'imagenet':
-                if data_type == 'train':
-                    # check remaining data
-                    if self.data.last_iter < self.config.data.max_iter:
-                        loader = build_imagenet_train_dataloader(self.config.data)
+            if data_type in ['train', 'test', 'val', 'arch']:
+                if self.config.data.type == 'imagenet':
+                    # imagenet type
+                    if data_type == 'train':
+                        if self.config.data.last_iter < self.config.data.max_iter:
+                            loader = build_imagenet_train_dataloader(self.config.data)
+                        else:
+                            loader = {'loader': None}
+                    elif data_type == 'test':
+                        loader = build_imagenet_test_dataloader(self.config.data)
                     else:
-                        loader = {'train': None}
-                elif data_type == 'test':
-                    loader = build_imagenet_test_dataloader(self.config.data)
+                        loader = build_imagenet_search_dataloader(self.config.data)
                 else:
-                    loader = build_imagenet_search_dataloader(self.config.data)
-            else:
-                if data_type == 'train' and self.data.last_iter < self.config.data.max_iter:
-                    loader = {'train': None}
-                else:
+                    # custom type
                     loader = build_custom_dataloader(data_type, self.config.data)
-            self.data_loaders.update({data_type: loader['loader']})
+                self.data_loaders.update({data_type: loader['loader']})
 
         if self.data_loaders['train'] is not None:
             self.total_step = len(self.data_loaders['train'])
@@ -297,7 +296,7 @@ class PrototypeHelper(SpringCommonInterface):
         '''
         input = torch.zeros(1, 3, self.config.data.input_size, self.config.data.input_size)
         input = input.cuda().half() if self.fp16 else input.cuda()
-        raise input
+        return input
 
     # sci
     def get_dump_dict(self):
@@ -312,7 +311,7 @@ class PrototypeHelper(SpringCommonInterface):
         dict_to_dump['last_iter'] = self.curr_step
         if self.ema is not None:
             dict_to_dump['ema'] = self.ema.state_dict()
-        raise dict_to_dump
+        return dict_to_dump
 
     # sci
     def get_batch(self, batch_type='train'):
@@ -368,7 +367,7 @@ class PrototypeHelper(SpringCommonInterface):
             model (torch.nn.Module): Pytorch GPU model to be loaded
             ckpt_dict (dict): checkpoint dict to resume task
         '''
-        model.load_state_model(ckpt_dict['model'], strict=True)
+        model.load_state_dict(ckpt_dict['model'], strict=True)
 
     # sci
     def forward(self, batch):
@@ -387,7 +386,9 @@ class PrototypeHelper(SpringCommonInterface):
         self.curr_step += 1
         # measure data loading time
         self.meters.data_time.update(time.time() - self.end_time)
-        input, target = batch['image'], batch['label']
+        input, target = batch[0]['image'], batch[0]['label']
+        input = input.cuda().half() if self.fp16 else input.cuda()
+        target = target.squeeze().view(-1).cuda().long()
         # forward
         logits = self.model(input)
         loss = self.criterion(logits, target)
@@ -425,7 +426,7 @@ class PrototypeHelper(SpringCommonInterface):
     # sci
     def update(self):
         '''
-        Update the model with current calculaed gradients.
+        Update the model with current calculated gradients.
         The scheduler should also be stepped.
         '''
         self.lr_scheduler.step(self.curr_step)
@@ -464,7 +465,7 @@ class PrototypeHelper(SpringCommonInterface):
             # lr_scheduler.get_lr()[0] is the main lr
             current_lr = self.lr_scheduler.get_lr()[0]
             curr_step = self.curr_step
-            if curr_step % self.config.print_freq == 0 and self.dist.rank == 0:
+            if curr_step % self.config.saver.print_freq == 0 and self.dist.rank == 0:
                 self.tb_logger.add_scalar('loss_train', self.meters.losses.avg, curr_step)
                 self.tb_logger.add_scalar('acc1_train', self.meters.top1.avg, curr_step)
                 self.tb_logger.add_scalar('acc5_train', self.meters.top5.avg, curr_step)
@@ -525,7 +526,7 @@ class PrototypeHelper(SpringCommonInterface):
         self.model.eval()
         res_file = os.path.join(self.path.result_path, f'results.txt.rank{self.dist.rank}')
         writer = open(res_file, 'w')
-        for batch_idx, batch in enumerate(self.val_data['loader']):
+        for batch_idx, batch in enumerate(self.data_loaders['test']):
             input = batch['image']
             label = batch['label']
             input = input.cuda().half() if self.fp16 else input.cuda()
@@ -540,12 +541,12 @@ class PrototypeHelper(SpringCommonInterface):
             batch.update({'prediction': preds})
             batch.update({'score': scores})
             # save prediction information
-            self.val_data['loader'].dataset.dump(writer, batch)
+            self.data_loaders['test'].dataset.dump(writer, batch)
 
         writer.close()
         link.barrier()
         if self.dist.rank == 0:
-            metrics = self.val_data['loader'].dataset.evaluate(res_file)
+            metrics = self.data_loaders['test'].dataset.evaluate(res_file)
             self.logger.info(json.dumps(metrics.metric, indent=2))
         else:
             metrics = {}
@@ -663,8 +664,8 @@ class PrototypeHelper(SpringCommonInterface):
         kestrel_config = self.config.to_kestrel
         kestrel_param = EasyDict()
         # default: ImageNet statistics
-        kestrel_param['pixel_means'] = kestrel_config.get('pixel_means', [124.16, 116.736, 103.936])
-        kestrel_param['pixel_stds'] = kestrel_config.get('pixel_stds', [58.624, 57.344, 57.6])
+        kestrel_param['pixel_means'] = kestrel_config.get('pixel_means', [123.675, 116.28, 103.53])
+        kestrel_param['pixel_stds'] = kestrel_config.get('pixel_stds', [58.395, 57.12, 57.375])
         # default: True/True/UNKNOWN
         kestrel_param['is_rgb'] = kestrel_config.get('is_rgb', True)
         kestrel_param['save_all_label'] = kestrel_config.get('save_all_label', True)
@@ -682,6 +683,22 @@ class PrototypeHelper(SpringCommonInterface):
             kestrel_param['class_label']['imagenet']['feature_end'] = 0
 
         return json.dumps(kestrel_param)
+
+    # sci
+    def get_epoch_iter(self, loader_name):
+        '''
+        Return the epoch iteration of the loader with the given loader_name.
+        The returned value equals to one epoch iteration, i.e. len(self.xxx_loader)
+        This interface is different with `get_total_iter`, which is required to return
+        the total iteration of the training process.
+
+        Args:
+            loader_name (str): loader's name.
+
+        Returns:
+            int: The epoch iteration of the loader with the given loader_name.
+        '''
+        return len(self.data_loaders[loader_name])
 
     # sensespring
     def to_caffe(self, save_prefix='model', input_size=None):

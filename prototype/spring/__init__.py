@@ -1,1 +1,1 @@
-from prototype_helper import PrototypeHelper # noqa
+from .prototype_helper import PrototypeHelper # noqa
