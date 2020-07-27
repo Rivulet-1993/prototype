@@ -26,9 +26,7 @@ class SimCLRSolver(ClsSolver):
                     1, 3, self.config.data.input_size, self.config.data.input_size])
 
         # handle fp16
-        if self.config.optimizer.type == 'FP16SGD' or \
-           self.config.optimizer.type == 'FusedFP16SGD' or \
-           self.config.optimizer.type == 'FP16RMSprop':
+        if self.config.optimizer.type in ['FP16SGD', 'FusedFP16SGD', 'FP16RMSprop']:
             self.fp16 = True
         else:
             self.fp16 = False
@@ -40,14 +38,11 @@ class SimCLRSolver(ClsSolver):
             # function, then call link.fp16.init() before call model.half()
             if self.config.optimizer.get('fp16_normal_bn', False):
                 self.logger.info('using normal bn for fp16')
-                link.fp16.register_float_module(
-                    link.nn.SyncBatchNorm2d, cast_args=False)
-                link.fp16.register_float_module(
-                    torch.nn.BatchNorm2d, cast_args=False)
+                link.fp16.register_float_module(link.nn.SyncBatchNorm2d, cast_args=False)
+                link.fp16.register_float_module(torch.nn.BatchNorm2d, cast_args=False)
             if self.config.optimizer.get('fp16_normal_fc', False):
                 self.logger.info('using normal fc for fp16')
-                link.fp16.register_float_module(
-                    torch.nn.Linear, cast_args=True)
+                link.fp16.register_float_module(torch.nn.Linear, cast_args=True)
             link.fp16.init()
             self.model.half()
 
@@ -63,13 +58,12 @@ class SimCLRSolver(ClsSolver):
     def train(self):
 
         self.pre_train()
-
         total_step = len(self.train_data['loader'])
         start_step = self.state['last_iter'] + 1
-
         end = time.time()
 
-        for i, (input, target) in enumerate(self.train_data['loader']):
+        for i, batch in enumerate(self.train_data['loader']):
+            input = batch['image']
             curr_step = start_step + i
             self.lr_scheduler.step(curr_step)
             # lr_scheduler.get_lr()[0] is the main lr
@@ -84,12 +78,9 @@ class SimCLRSolver(ClsSolver):
             # normalize projection feature vectors
             z_i = F.normalize(z_i, dim=1)
             z_j = F.normalize(z_j, dim=1)
-
             loss = self.criterion(z_i, z_j) / self.dist.world_size
-
             reduced_loss = loss.clone()
             self.meters.losses.reduce_update(reduced_loss)
-
             self.optimizer.zero_grad()
 
             if FusedFP16SGD is not None and isinstance(self.optimizer, FusedFP16SGD):
@@ -111,36 +102,29 @@ class SimCLRSolver(ClsSolver):
 
             # measure elapsed time
             self.meters.batch_time.update(time.time() - end)
-
-            if curr_step % self.config.print_freq == 0 and self.dist.rank == 0:
-                self.tb_logger.add_scalar(
-                    'loss_train', self.meters.losses.avg, curr_step)
+            if curr_step % self.config.saver.print_freq == 0 and self.dist.rank == 0:
+                self.tb_logger.add_scalar('loss_train', self.meters.losses.avg, curr_step)
                 self.tb_logger.add_scalar('lr', current_lr, curr_step)
-                remain_secs = (total_step - curr_step) * \
-                    self.meters.batch_time.avg
+                remain_secs = (total_step - curr_step) * self.meters.batch_time.avg
                 remain_time = datetime.timedelta(seconds=round(remain_secs))
-                finish_time = time.strftime(
-                    "%Y-%m-%d %H:%M:%S", time.localtime(time.time()+remain_secs))
+                finish_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()+remain_secs))
                 log_msg = f'Iter: [{curr_step}/{total_step}]\t' \
                     f'Time {self.meters.batch_time.val:.3f} ({self.meters.batch_time.avg:.3f})\t' \
                     f'Data {self.meters.data_time.val:.3f} ({self.meters.data_time.avg:.3f})\t' \
                     f'Loss {self.meters.losses.val:.4f} ({self.meters.losses.avg:.4f})\t' \
                     f'LR {current_lr:.4f}\t' \
                     f'Remaining Time {remain_time} ({finish_time})'
-
                 self.logger.info(log_msg)
 
-            if curr_step > 0 and curr_step % self.config.save_freq == 0:
+            if curr_step > 0 and curr_step % self.config.saver.val_freq == 0:
                 if self.dist.rank == 0:
-                    if self.config.save_many:
+                    if self.config.saver.save_many:
                         ckpt_name = f'{self.path.save_path}/ckpt_{curr_step}.pth.tar'
                     else:
                         ckpt_name = f'{self.path.save_path}/ckpt.pth.tar'
-
                     self.state['model'] = self.model.state_dict()
                     self.state['optimizer'] = self.optimizer.state_dict()
                     self.state['last_iter'] = curr_step
-
                     torch.save(self.state, ckpt_name)
 
             end = time.time()
@@ -150,13 +134,10 @@ class SimCLRSolver(ClsSolver):
 def main():
     parser = argparse.ArgumentParser(description='simclr solver')
     parser.add_argument('--config', required=True, type=str)
-    parser.add_argument('--recover', type=str, default='')
 
     args = parser.parse_args()
-
-    # build or recover solver
-    solver = SimCLRSolver(args.config, recover=args.recover)
-
+    # build solver
+    solver = SimCLRSolver(args.config)
     if solver.config.data.last_iter < solver.config.data.max_iter:
         solver.train()
     else:

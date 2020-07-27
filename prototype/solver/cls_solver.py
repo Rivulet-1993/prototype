@@ -105,14 +105,11 @@ class ClsSolver(BaseSolver):
             # function, then call link.fp16.init() before call model.half()
             if self.config.optimizer.get('fp16_normal_bn', False):
                 self.logger.info('using normal bn for fp16')
-                link.fp16.register_float_module(
-                    link.nn.SyncBatchNorm2d, cast_args=False)
-                link.fp16.register_float_module(
-                    torch.nn.BatchNorm2d, cast_args=False)
+                link.fp16.register_float_module(link.nn.SyncBatchNorm2d, cast_args=False)
+                link.fp16.register_float_module(torch.nn.BatchNorm2d, cast_args=False)
             if self.config.optimizer.get('fp16_normal_fc', False):
                 self.logger.info('using normal fc for fp16')
-                link.fp16.register_float_module(
-                    torch.nn.Linear, cast_args=True)
+                link.fp16.register_float_module(torch.nn.Linear, cast_args=True)
             link.fp16.init()
             self.model.half()
 
