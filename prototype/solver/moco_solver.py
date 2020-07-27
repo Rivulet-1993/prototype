@@ -70,7 +70,7 @@ class MoCoSolver(ClsSolver):
             if self.config.data.type == 'imagenet':
                 self.train_data = build_imagenet_train_dataloader(self.config.data)
             elif self.config.data.type == 'custom':
-                self.train_data = build_sustom_dataloader('train', self.config.data)
+                self.train_data = build_custom_dataloader('train', self.config.data)
             else:
                 raise RuntimeError("undefined data type!")
 

@@ -383,7 +383,6 @@ class PrototypeHelper(SpringCommonInterface):
             loss (torch.cuda.Tensor): loss tensor in GPU, the loss of the given batch and current model.
         '''
         assert self.model.training
-        self.curr_step += 1
         # measure data loading time
         self.meters.data_time.update(time.time() - self.end_time)
         input, target = batch[0]['image'], batch[0]['label']
@@ -429,6 +428,7 @@ class PrototypeHelper(SpringCommonInterface):
         Update the model with current calculated gradients.
         The scheduler should also be stepped.
         '''
+        self.curr_step += 1    # move from forward() to update()
         self.lr_scheduler.step(self.curr_step)
         self.optimizer.step()
         # EMA
