@@ -5,11 +5,24 @@ import shutil
 import numpy as np
 import yaml
 import json
+import torch.nn as nn
 import linklink as link
 
 from prototype.utils.dist import link_dist
-from .cls_solver import ClsSolver
-from prototype.config import parse_config
+from prototype.solver.cls_solver import ClsSolver
+from prototype.utils.misc import parse_config
+
+
+class Wrapper(nn.Module):
+    def __init__(self, model):
+        super(Wrapper, self).__init__()
+        self.model = model
+        self.softmax = nn.Softmax(dim=1)
+
+    def forward(self, x):
+        x = self.model(x)
+        x = self.softmax(x)
+        return x
 
 
 class KestrelSolver(ClsSolver):
@@ -17,9 +30,12 @@ class KestrelSolver(ClsSolver):
     def __init__(self, config_file, recover=''):
         self.config_file = config_file
         self.recover = recover
+        self.prototype_info = EasyDict()
         self.config = parse_config(config_file)
         self.setup_env()
         self.build_model()
+        if self.config.to_kestrel.get('add_softmax'):
+            self.model = Wrapper(self.model)
 
     def to_caffe(self, save_prefix='model', input_size=None):
         try:
@@ -56,8 +72,8 @@ class KestrelSolver(ClsSolver):
             'save_all_label', True)
         kestrel_config['type'] = self.config.get('type', 'ImageNet')
 
-        if hasattr(self.config, 'class_label'):
-            kestrel_config['class_label'] = self.config['class_label']
+        if self.config.get('to_kestrel') and self.config.to_kestrel.get('class_label'):
+            kestrel_config['class_label'] = self.config.to_kestrel['class_label']
         else:
             kestrel_config['class_label'] = {}
             kestrel_config['class_label']['imagenet'] = {}
@@ -81,8 +97,9 @@ class KestrelSolver(ClsSolver):
 
         prototxt = '{}.prototxt'.format(prefix)
         caffemodel = '{}.caffemodel'.format(prefix)
-        version = '1.0.0'
-        model_name = self.config.model.type
+        version = self.config.to_kestrel.get('version') if self.config.to_kestrel.get('version') else '1.0.0'
+        model_name = self.config.to_kestrel.get('model_name') if self.config.to_kestrel.get('model_name') \
+            else self.config.model.type
 
         kestrel_model = '{}_{}.tar'.format(model_name, version)
         to_kestrel_yml = 'temp_to_kestrel.yml'
@@ -121,7 +138,6 @@ def main():
 
     # build or recover solver
     solver = KestrelSolver(args.config, recover=args.recover)
-
     # to caffe and to kestrel
     solver.to_kestrel()
 

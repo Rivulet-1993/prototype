@@ -5,12 +5,12 @@ from .dist import simple_group_split
 
 
 class MoCo(nn.Module):
-    def __init__(self, encoder_q, encoder_k, K=65536, m=0.999, T=0.07, mlp=False, group_size=None):
+    def __init__(self, encoder_q, encoder_k, K=65536, m=0.999, T=0.07, mlp=False, group_size=8):
         """
         K: queue size; number of negative keys (default: 65536)
         m: moco momentum of updating key encoder (default: 0.999)
         T: softmax temperature (default: 0.07)
-        group_size: size of the group to use ShuffleBN (default: None, shuffle data across all gpus)
+        group_size: size of the group to use ShuffleBN (default: 8, shuffle data across all gpus)
         """
         super(MoCo, self).__init__()
 
@@ -42,7 +42,6 @@ class MoCo(nn.Module):
         self.group_size = world_size if group_size is None else min(
             world_size, group_size)
 
-        assert group_size % 8 == 0
         assert world_size % self.group_size == 0
         self.group_idx = simple_group_split(
             world_size, rank, world_size // self.group_size)

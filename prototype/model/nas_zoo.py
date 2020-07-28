@@ -923,7 +923,7 @@ def nas_custom(**kwargs):
     alloc_code = kwargs['alloc_code']
     kwargs.pop('alloc_code')
     if kwargs['cell_plan'] == 'mobileV2':
-        alloc_code = [(op if op != 9 else 19) for op in kwargs['alloc_code']]
+        alloc_code = [(op if op != 9 else 19) for op in alloc_code]
     if kwargs['cell_plan'] in ['mobileV2', 'super']:
         cell_plan = 'aligned'
         kwargs.pop('cell_plan')

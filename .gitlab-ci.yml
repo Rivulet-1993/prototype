@@ -1,16 +1,14 @@
-image: "python:3.6"
-
-#before_script:
-#    - pip install flake8
+image: "registry.sensetime.com/spring/dka:dispatcher-linklink-run-v0.3.0-cuda9.0.mvapich2"
 
 stages:
     - style_check
     - test
+    - build
 
 flake8:
     stage: style_check
     tags:
-        - docker
+        - springce
     script:
         - pip install flake8
         - python -m flake8 --max-line-length=120
@@ -18,6 +16,19 @@ flake8:
 test_main:
     stage: test
     tags:
-        - docker
+        - springce
     script:
         - python main.py
+
+build:
+    tags:
+        - springce
+    image: registry.sensetime.com/spring-test/spring-infra/docker
+    stage: build
+    before_script:
+        - docker login -u $DOCKER_ROBOT_USERNAME -p $DOCKER_ROBOT_PASSWORD registry.sensetime.com
+    script:
+        - make
+    only:
+        - tags
+

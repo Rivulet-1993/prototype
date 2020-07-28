@@ -1,5 +1,6 @@
 import os
 import torch
+import pickle
 import numpy as np
 import linklink as link
 
@@ -85,3 +86,41 @@ class DistModule(torch.nn.Module):
         """ broadcast model parameters """
         for name, param in self.module.state_dict().items():
             link.broadcast(param, 0)
+
+
+def _serialize_to_tensor(data, group=None):
+    # backend = link.get_backend(group)
+    # assert backend in ["gloo", "nccl"]
+    # device = torch.device("cpu" if backend == "gloo" else "cuda")
+    device = torch.cuda.current_device()
+
+    buffer = pickle.dumps(data)
+    if len(buffer) > 1024 ** 3:
+        import logging
+        logger = logging.getLogger('global')
+        logger.warning(
+            "Rank {} trying to all-gather {:.2f} GB of data on device {}".format(
+                link.get_rank(), len(buffer) / (1024 ** 3), device
+            )
+        )
+    storage = torch.ByteStorage.from_buffer(buffer)
+    tensor = torch.ByteTensor(storage).to(device=device)
+    return tensor
+
+
+def broadcast_object(obj, group=None):
+    """make suare obj is picklable
+    """
+    if link.get_world_size() == 1:
+        return obj
+
+    serialized_tensor = _serialize_to_tensor(obj).cuda()
+    numel = torch.IntTensor([serialized_tensor.numel()]).cuda()
+    link.broadcast(numel, 0)
+    # serialized_tensor from storage is not resizable
+    serialized_tensor = serialized_tensor.clone()
+    serialized_tensor.resize_(numel)
+    link.broadcast(serialized_tensor, 0)
+    serialized_bytes = serialized_tensor.cpu().numpy().tobytes()
+    deserialized_obj = pickle.loads(serialized_bytes)
+    return deserialized_obj
