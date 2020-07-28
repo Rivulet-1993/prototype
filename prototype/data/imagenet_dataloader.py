@@ -213,7 +213,7 @@ def build_imagenet_test_dataloader(cfg_dataset, data_type='test'):
     return {'type': 'test', 'loader': loader}
 
 
-def build_imagenet_search_dataloader(cfg_dataset, data_type='search'):
+def build_imagenet_search_dataloader(cfg_dataset, data_type='arch'):
     """
     build ImageNet dataloader for neural network search (NAS)
     """
@@ -243,7 +243,7 @@ def build_imagenet_search_dataloader(cfg_dataset, data_type='search'):
             image_reader_type=image_reader.get('type', 'pil'),
         )
     # build sampler
-    assert cfg_search['sampler'].get('type', 'given_iteration') == 'given_iteration'
+    assert cfg_search['sampler'].get('type', 'distributed_iteration') == 'distributed_iteration'
     cfg_search['sampler']['kwargs'] = {
         'dataset': dataset,
         'batch_size': cfg_dataset['batch_size'],
