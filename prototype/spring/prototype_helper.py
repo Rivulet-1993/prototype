@@ -344,7 +344,7 @@ class PrototypeHelper(SpringCommonInterface):
         except StopIteration as e:  # noqa
             iterator = self.data_iterators[batch_type] = iter(self.data_loaders[batch_type])
             batch = next(iterator)
-        return batch, -1
+        return batch['image'], batch['label']
 
     # sci
     def get_total_iter(self):
@@ -385,7 +385,7 @@ class PrototypeHelper(SpringCommonInterface):
         assert self.model.training
         # measure data loading time
         self.meters.data_time.update(time.time() - self.end_time)
-        input, target = batch[0]['image'], batch[0]['label']
+        input, target = batch[0], batch[1]
         input = input.cuda().half() if self.fp16 else input.cuda()
         target = target.squeeze().view(-1).cuda().long()
         # forward
@@ -617,6 +617,7 @@ class PrototypeHelper(SpringCommonInterface):
         self.logger.info(log_msg)
 
     # sci
+    @classmethod
     def add_external_model(cls, name, callable_object):
         '''
         Add external model into the element. After this interface is called, the element should
