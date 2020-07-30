@@ -1,55 +1,77 @@
-type: imagenet
-version: 0.1
-config:
-    model:
-        type: regnetx_200m
-        kwargs:
-            bn:
-                use_sync_bn: False
-                kwargs: {}
-    dist:
-        sync: True
+model:
+    type: regnetx_200m
+    kwargs:
+        bn:
+            use_sync_bn: False
+            kwargs: {}
+dist:
+    sync: True
 
-    optimizer:
-        type: FusedFP16SGD
-        fp16_normal_bn: True
-        kwargs:
-            nesterov: True
-            momentum: 0.9
-            weight_decay: 0.00005
+optimizer:
+    type: FusedFP16SGD
+    fp16_normal_bn: True
+    kwargs:
+        nesterov: True
+        momentum: 0.9
+        weight_decay: 0.00005
 
-    lr_scheduler:
-        type: Cosine
-        kwargs:
-            base_lr: 0.2
-            warmup_lr: 0.8
-            warmup_steps: 6250
-            min_lr: 0.0
-            max_iter: 125000
+lr_scheduler:
+    type: Cosine
+    kwargs:
+        base_lr: 0.2
+        warmup_lr: 0.8
+        warmup_steps: 6250
+        min_lr: 0.0
+        max_iter: 125000
 
-    label_smooth: 0.1
-    ema:
-        enable: False
+label_smooth: 0.1
+ema:
+    enable: False
 
-    data:
-        use_dali: False
-        use_dali_v2: True
-        read_from: mc
-        batch_size: 64
-        dali_workers: 4
-        workers: 2
-        pin_memory: True
-        epoch_wise_shuffle: False
+data:
+    type: imagenet
+    read_from: mc
+    use_dali: True
+    batch_size: 64
+    num_workers: 4
+    pin_memory: True
+    input_size: 224
+    test_resize: 256
 
-        input_size: 224
-        test_resize: 256
-        augmentation:
-            colorjitter: [0.2, 0.2, 0.2, 0.1]
-        train_root: /mnt/lustre/share/images/train
-        train_meta: /mnt/lustre/share/images/meta/train.txt
-        val_root: /mnt/lustre/share/images/val
-        val_meta: /mnt/lustre/share/images/meta/val.txt
+    train:
+        root_dir: /mnt/lustre/share/images/train/
+        meta_file: /mnt/lustre/share/images/meta/train.txt
+        image_reader:
+            type: pil
+        sampler:
+            type: distributed_iteration
+        transforms:
+            type: STANDARD
 
-    print_freq: 100
+    test:
+        root_dir: /mnt/lustre/share/images/val/
+        meta_file: /mnt/lustre/share/images/meta/val.txt
+        image_reader:
+            type: pil
+        sampler:
+            type: distributed
+        transforms:
+            type: ONECROP
+        evaluator:
+            type: imagenet
+            kwargs:
+                topk: [1, 5]
+
+saver:
+    print_freq: 10
     val_freq: 1000
     save_many: False
+    # pretrain:
+    #     path: checkpoints/ckpt.pth.tar
+    #     ignore:
+    #         key:
+    #             - optimizer
+    #             - last_iter
+    #         model:
+    #             - module.fc.weight
+    #             - module.fc.bias

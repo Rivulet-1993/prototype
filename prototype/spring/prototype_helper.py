@@ -105,6 +105,7 @@ class PrototypeHelper(SpringCommonInterface):
                 self.logger.info(f"Recovering from {self.config.saver.pretrain.path}, keys={list(self.state.keys())}")
                 if hasattr(self.config.saver.pretrain, 'ignore'):
                     self.state = modify_state(self.state, self.config.saver.pretrain.ignore)
+                self.curr_step = self.state['last_iter']
             else:
                 self.state = {'last_iter': 0}
                 self.curr_step = 0
@@ -114,6 +115,9 @@ class PrototypeHelper(SpringCommonInterface):
         self._build_optimizer()
         self._build_data()
         self._build_lr_scheduler()
+        # load pretrain state to model
+        if 'model' in self.state:
+            load_state_model(self.model, self.state['model'])
 
     # sci
     def build_model(self):

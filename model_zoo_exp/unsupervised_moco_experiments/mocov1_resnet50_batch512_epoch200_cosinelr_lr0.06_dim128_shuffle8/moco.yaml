@@ -1,66 +1,63 @@
-type: imagenet
-version: 0.1
-config:
-    model:
-        type: resnet50_official
-        kwargs:
-            num_classes: 128
-            bn:
-                use_sync_bn: False
-                kwargs: {}
+model:
+    type: resnet50_official
+    kwargs:
+        num_classes: 128
+        bn:
+            use_sync_bn: False
+            kwargs: {}
 
-    dist:
-        sync: True
+dist:
+    sync: True
 
-    moco:
-        kwargs:
-            K: 65536
-            T: 0.07
-            m: 0.999
-            mlp: False
-            group_size: 8
+moco:
+    kwargs:
+        K: 65536
+        T: 0.07
+        m: 0.999
+        mlp: False
+        group_size: 8
 
-    optimizer:
-        type: SGD
-        kwargs:
-            nesterov: True
-            momentum: 0.9
-            weight_decay: 0.0001
+optimizer:
+    type: SGD
+    kwargs:
+        nesterov: True
+        momentum: 0.9
+        weight_decay: 0.0001
 
-    lr_scheduler:
-        type: Step
-        kwargs:
-            lr_steps: [300000, 400000]
-            lr_mults: [0.1, 0.1]
+lr_scheduler:
+    type: Step
+    kwargs:
+        lr_steps: [300000, 400000]
+        lr_mults: [0.1, 0.1]
+        base_lr: 0.06
+        warmup_lr: 0.06
+        warmup_steps: 0
+        max_iter: 500000
 
-            base_lr: 0.06
-            warmup_lr: 0.06
-            warmup_steps: 0
-            max_iter: 500000
+ema:
+    enable: False
 
-    ema:
-        enable: False
+data:
+    type: imagenet
+    read_from: mc
+    use_dali: False
+    batch_size: 32
+    num_workers: 4
+    pin_memory: True
+    input_size: 224
+    test_resize: 256
 
-    data:
-        use_dali: False
-        use_dali_v2: False
-        moco_protocol: True
-        read_from: mc
-        batch_size: 32
-        dali_workers: 4
-        workers: 4
-        pin_memory: True
-        epoch_wise_shuffle: False
+    train:
+        root_dir: /mnt/lustre/share/images/train/
+        meta_file: /mnt/lustre/share/images/meta/train.txt
+        image_reader:
+            type: pil
+        sampler:
+            type: distributed_iteration
+        transforms:
+            type: MOCOV1
 
-        input_size: 224
-        test_resize: 256
-        augmentation:
-            type: moco_v1
-        train_root: /mnt/lustre/share/images/train
-        train_meta: /mnt/lustre/share/images/meta/train.txt
-        val_root: /mnt/lustre/share/images/val
-        val_meta: /mnt/lustre/share/images/meta/val.txt
-
+saver:
     print_freq: 10
-    save_freq: 10000
-    save_many: False
+    val_freq: 5000
+    save_many: True
