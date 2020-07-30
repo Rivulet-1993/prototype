@@ -31,10 +31,9 @@ from prototype.data import (
 )
 
 try:
-    from SpringCommonInterface import Metric, SpringCommonInterface
+    from SpringCommonInterface import SpringCommonInterface
 except ImportError:
     SpringCommonInterface = object
-    Metric = object
 
 
 class PrototypeHelper(SpringCommonInterface):

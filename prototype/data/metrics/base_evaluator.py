@@ -1,25 +1,20 @@
-from collections import OrderedDict
+try:
+    from SpringCommonInterface import Metric as SCIMetric
+except ImportError:
+    SCIMetric = object
 
 
-class Metric(OrderedDict):
-
-    def __gt__(self, other):
-        return self[self.cmp_key] > other[self.cmp_key]
-
-    def __eq__(self, other):
-        return self[self.cmp_key] == other[self.cmp_key]
-
-    def __lt__(self, other):
-        return self[self.cmp_key] < other[self.cmp_key]
-
-    def __ge__(self, other):
-        return self[self.cmp_key] >= other[self.cmp_key]
-
-    def __le__(self, other):
-        return self[self.cmp_key] <= other[self.cmp_key]
+class Metric(SCIMetric):
+    def __init__(self, metric={}, cmp_key=''):
+        if SCIMetric != object:
+            super(Metric, self).__init__(metric.get(cmp_key, -1))
+        self.metric = metric
+        self.cmp_key = cmp_key
 
     def set_cmp_key(self, key):
         self.cmp_key = key
+        if SCIMetric != object:
+            self.v = self.metric[self.cmp_key]
 
 
 class Evaluator(object):
@@ -28,7 +23,8 @@ class Evaluator(object):
 
     def eval(self, res_file):
         """
-        This should return a dict with keys of metric names, values of metric values.
+        This should return a dict with keys of metric names,
+        values of metric values.
 
         Arguments:
             res_file (str): file that holds classification results

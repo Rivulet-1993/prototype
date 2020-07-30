@@ -2,3 +2,4 @@
 nart==0.2.4
 kestrel==1.5.4
 springvision==1.0.0
+SpringCommonInterface==1.3.0
