@@ -19,7 +19,8 @@ class CustomMetric(Metric):
 
     def set_cmp_key(self, key):
         self.cmp_key = key
-        self.v = self.metric[self.cmp_key]
+        # TODO fix key_name
+        # self.v = self.metric[self.cmp_key]
 
 
 class CustomEvaluator(Evaluator):
