@@ -1,0 +1,55 @@
+model:                    # architecture details
+    type: resnet50_cifar  # modify your model to cifar type !!!
+    kwargs:
+        num_classes: 100  # number of classes choices = {10, 100}
+        bn:
+            use_sync_bn: False  # whether to use syncbn
+            kwargs: {}          # kwargs of bn
+
+dist:                     # distributed communication
+    sync: False           # if 'True', synchronize gradients after forward 
+                          # if 'False', synchronize gradient during forward
+
+optimizer:                # optimizer details
+    type: SGD
+    kwargs:
+        nesterov: True
+        momentum: 0.9
+        weight_decay: 0.0005
+
+lr_scheduler:             # learning rate scheduler details
+    type: Cosine
+    kwargs:
+        base_lr: 0.05
+        warmup_lr: 0.1
+        warmup_steps: 800
+        min_lr: 0.0
+        max_iter: 43000
+
+label_smooth: 0.1         # label smooth ratio
+# mixup: 0.2              # mixup ratio
+# cutmix: 1.0             # cutmix ratio
+ema:                      # exponential moving average details
+    enable: False
+    kwargs:
+        decay: 0.999
+
+lms:                      # large model support: utilize cpu to save gpu memory
+    enable: False         # whether to use lms
+    kwargs:
+        limit: 12         # the soft limit in G-bytes on GPU memory allocated for tensors
+
+data:                     # data details
+    task: cifar100        # cifar task type
+    batch_size: 64        # number of batch size
+    workers: 4            # number of workers
+    autoaugment: True     # whether to use autoaugmentation
+    cutout: True          # whether to use cutout
+    input_size: 32        # input image size
+
+saver:                                # saving or loading details
+    print_freq: 10                    # frequence of printing logger
+    val_freq: 100                     # frequence of evaluating during training
+    save_many: False                  # whether to save checkpoints after every evaluation
+    # pretrain:                       # pretrain model details
+    #     path: checkpoints/ckpt.pth.tar
