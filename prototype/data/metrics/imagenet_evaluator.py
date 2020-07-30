@@ -8,30 +8,17 @@ from .base_evaluator import Evaluator, Metric
 class ClsMetric(Metric):
     def __init__(self, metric_dict={}):
         self.metric = metric_dict
+        super(ClsMetric, self).__init__(self.metric)
 
     def __str__(self):
         return f'metric={self.metric} key={self.cmp_key}'
 
-    def __eq__(self, other):
-        return self.metric[self.cmp_key] == other.metric[self.cmp_key]
-
-    def __ne__(self, other):
-        return self.metric[self.cmp_key] != other.metric[self.cmp_key]
-
-    def __gt__(self, other):
-        return self.metric[self.cmp_key] < other.metric[self.cmp_key]
-
-    def __lt__(self, other):
-        return self.metric[self.cmp_key] > other.metric[self.cmp_key]
-
-    def __ge__(self, other):
-        return self.metric[self.cmp_key] <= other.metric[self.cmp_key]
-
-    def __le__(self, other):
-        return self.metric[self.cmp_key] >= other.metric[self.cmp_key]
+    def __repr__(self):
+        return f'metric={self.metric} key={self.cmp_key}'
 
     def set_cmp_key(self, key):
         self.cmp_key = key
+        self.v = self.metric[self.cmp_key]
 
 
 class ImageNetEvaluator(Evaluator):
@@ -80,8 +67,8 @@ class ImageNetEvaluator(Evaluator):
             name, help='subcommand for ImageNet of Top-1/5 accuracy metric')
         subparser.add_argument('--config', dest='config', required=True,
                                help='settings of classification in yaml format')
-        subparser.add_argument('--res_file', required=True,
-                               action='append', help='results file of classification')
+        subparser.add_argument('--res_file', required=True, action='append',
+                               help='results file of classification')
 
         return subparser
 
