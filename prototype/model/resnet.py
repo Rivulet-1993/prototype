@@ -91,10 +91,27 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-
-    def __init__(self, block, layers, num_classes=1000, deep_stem=False,
-                 avg_down=False, bypass_last_bn=False,
+    """Redidual Networks class, based on
+    `"Deep Residual Learning for Image Recognition" <https://arxiv.org/abs/1512.03385>`_
+    """
+    def __init__(self,
+                 block,
+                 layers,
+                 num_classes=1000,
+                 deep_stem=False,
+                 avg_down=False,
+                 bypass_last_bn=False,
                  bn=None):
+        r"""
+        Arguments:
+
+        - layers (:obj:`list` of 4 ints): how many layers in each stage
+        - num_classes (:obj:`int`): number of classification classes
+        - deep_stem (:obj:`bool`): whether to use deep_stem as the first conv
+        - avg_down (:obj:`bool`): whether to use avg_down when spatial downsample
+        - bypass_last_bn (:obj:`bool`): whether use bypass_last_bn
+        - bn (:obj:`dict`): definition of batchnorm
+        """
 
         super(ResNet, self).__init__()
 
@@ -194,36 +211,57 @@ class ResNet(nn.Module):
 
 
 def resnet18(**kwargs):
+    """
+    Constructs a ResNet-18 model.
+    """
     model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
     return model
 
 
 def resnet26(**kwargs):
+    """
+    Constructs a ResNet-26 model.
+    """
     model = ResNet(Bottleneck, [2, 2, 2, 2], **kwargs)
     return model
 
 
 def resnet34(**kwargs):
+    """
+    Constructs a ResNet-34 model.
+    """
     model = ResNet(BasicBlock, [3, 4, 6, 3], **kwargs)
     return model
 
 
 def resnet50(**kwargs):
+    """
+    Constructs a ResNet-50 model.
+    """
     model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
     return model
 
 
 def resnet101(**kwargs):
+    """
+    Constructs a ResNet-101 model.
+    """
     model = ResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
     return model
 
 
 def resnet152(**kwargs):
+    """
+    Constructs a ResNet-152 model.
+    """
     model = ResNet(Bottleneck, [3, 8, 36, 3], **kwargs)
     return model
 
 
 def resnet_custom(**kwargs):
+    """
+    Constructs a custom ResNet model with custom block and depth.
+    """
     assert 'block' in kwargs and 'layers' in kwargs, 'Require block and layers'
     block = kwargs.pop('block')
     layers = kwargs.pop('layers')

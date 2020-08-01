@@ -4,6 +4,7 @@ stages:
     - style_check
     - test
     - build
+    - deploy
 
 flake8:
     stage: style_check
@@ -20,6 +21,26 @@ test_main:
     script:
         - python main.py
 
+pages:
+  stage: deploy
+  script:
+        - pip install sphinx==1.5.6
+        - pip install http://10.10.40.93/packages/sphinx_rtd_theme-0.4.3-py2.py3-none-any.whl
+        - pip install sphinxcontrib-versioning
+        - pip install easydict
+        # - export LC_ALL=C.UTF-8
+        # - export LANG=C.UTF-8
+        - sphinx-versioning build docs/source docs/_build/html
+        - mv docs/_build/html public
+        - sshpass -p springpypi ssh -o 'StrictHostKeyChecking no' -p 10000 spring@10.10.40.93 'if [ -d ~/prototype ]; then rm -rf prototype; fi'
+        - sshpass -p springpypi scp -o 'StrictHostKeyChecking no' -P 10000 -r public/ spring@10.10.40.93:~/prototype
+  artifacts:
+    paths:
+        - public
+  only:
+        - master
+        - docs
+
 build:
     tags:
         - springce
@@ -31,4 +52,3 @@ build:
         - make
     only:
         - tags
-

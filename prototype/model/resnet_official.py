@@ -299,6 +299,9 @@ def resnet152_official(**kwargs):
 
 
 def resnext50_32x4d(**kwargs):
+    """
+    Construct a ResNeXt-50 model with 32 groups (4 channels per group)
+    """
     kwargs['groups'] = 32
     kwargs['width_per_group'] = 4
     model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
@@ -306,6 +309,9 @@ def resnext50_32x4d(**kwargs):
 
 
 def resnext101_32x8d(**kwargs):
+    """
+    Construct a ResNeXt-101 model with 32 groups (8 channels per group)
+    """
     kwargs['groups'] = 32
     kwargs['width_per_group'] = 8
     model = ResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
@@ -313,12 +319,18 @@ def resnext101_32x8d(**kwargs):
 
 
 def wide_resnet50_2(**kwargs):
+    """
+    Construct a Wide-ResNet-50 model with double channels
+    """
     kwargs['width_per_group'] = 64 * 2
     model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
     return model
 
 
 def wide_resnet101_2(**kwargs):
+    """
+    Construct a Wide-ResNet-101 model with double channels
+    """
     kwargs['width_per_group'] = 64 * 2
     model = ResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
     return model

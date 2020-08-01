@@ -64,10 +64,21 @@ def _get_depths(scale):
 
 
 class MNASNet(torch.nn.Module):
+    """MNASNet class, based on
+    `"MnasNet: Platform-Aware Neural Architecture Search for Mobile" <https://arxiv.org/abs/1807.11626>`_
+    """
     # Version 2 adds depth scaling in the initial stages of the network.
     _version = 2
 
     def __init__(self, scale, num_classes=1000, dropout=0.2, bn=None):
+        r"""
+        Arguments:
+
+        - scale (:obj:`float`): scale rate of channels
+        - num_classes (:obj:`int`): number of classification classes
+        - dropout (:obj:`float`): dropout rate
+        - bn (:obj:`dict`): definition of batchnorm
+        """
         super(MNASNet, self).__init__()
 
         global BN
@@ -131,5 +142,8 @@ class MNASNet(torch.nn.Module):
 
 
 def mnasnet(**kwargs):
+    """
+    Constructs a MNASNet model.
+    """
     model = MNASNet(**kwargs)
     return model

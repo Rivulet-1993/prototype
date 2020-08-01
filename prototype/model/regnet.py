@@ -290,7 +290,9 @@ def generate_regnet(w_a, w_0, w_m, d, q=8):
 
 
 class RegNet(AnyNet):
-    """RegNet model."""
+    """RegNet model class, based on
+    `"Designing Network Design Spaces" <https://arxiv.org/abs/2003.13678>`_
+    """
 
     def __init__(self, cfg, bn=None):
         # Generate RegNet ws per block
@@ -329,80 +331,128 @@ class RegNet(AnyNet):
 
 
 def regnetx_200m(**kwargs):
+    """
+    Constructs a RegNet-X model under 200M FLOPs.
+    """
     model = RegNet(regnetX_200M_config, **kwargs)
     return model
 
 
 def regnetx_400m(**kwargs):
+    """
+    Constructs a RegNet-X model under 400M FLOPs.
+    """
     model = RegNet(regnetX_400M_config, **kwargs)
     return model
 
 
 def regnetx_600m(**kwargs):
+    """
+    Constructs a RegNet-X model under 600M FLOPs.
+    """
     model = RegNet(regnetX_600M_config, **kwargs)
     return model
 
 
 def regnetx_800m(**kwargs):
+    """
+    Constructs a RegNet-X model under 800M FLOPs.
+    """
     model = RegNet(regnetX_800M_config, **kwargs)
     return model
 
 
 def regnetx_1600m(**kwargs):
+    """
+    Constructs a RegNet-X model under 1600M FLOPs.
+    """
     model = RegNet(regnetX_1600M_config, **kwargs)
     return model
 
 
 def regnetx_3200m(**kwargs):
+    """
+    Constructs a RegNet-X model under 3200M FLOPs.
+    """
     model = RegNet(regnetX_3200M_config, **kwargs)
     return model
 
 
 def regnetx_4000m(**kwargs):
+    """
+    Constructs a RegNet-X model under 4000M FLOPs.
+    """
     model = RegNet(regnetX_4000M_config, **kwargs)
     return model
 
 
 def regnetx_6400m(**kwargs):
+    """
+    Constructs a RegNet-X model under 6400M FLOPs.
+    """
     model = RegNet(regnetX_6400M_config, **kwargs)
     return model
 
 
 def regnety_200m(**kwargs):
+    """
+    Constructs a RegNet-Y model under 200M FLOPs.
+    """
     model = RegNet(regnetY_200M_config, **kwargs)
     return model
 
 
 def regnety_400m(**kwargs):
+    """
+    Constructs a RegNet-Y model under 400M FLOPs.
+    """
     model = RegNet(regnetY_400M_config, **kwargs)
     return model
 
 
 def regnety_600m(**kwargs):
+    """
+    Constructs a RegNet-Y model under 600M FLOPs.
+    """
     model = RegNet(regnetY_600M_config, **kwargs)
     return model
 
 
 def regnety_800m(**kwargs):
+    """
+    Constructs a RegNet-Y model under 800M FLOPs.
+    """
     model = RegNet(regnetY_800M_config, **kwargs)
     return model
 
 
 def regnety_1600m(**kwargs):
+    """
+    Constructs a RegNet-Y model under 1600M FLOPs.
+    """
     model = RegNet(regnetY_1600M_config, **kwargs)
     return model
 
 
 def regnety_3200m(**kwargs):
+    """
+    Constructs a RegNet-Y model under 3200M FLOPs.
+    """
     model = RegNet(regnetY_3200M_config, **kwargs)
     return model
 
 
 def regnety_4000m(**kwargs):
+    """
+    Constructs a RegNet-Y model under 4000M FLOPs.
+    """
     model = RegNet(regnetY_4000M_config, **kwargs)
     return model
 
 
 def regnety_6400m(**kwargs):
+    """
+    Constructs a RegNet-Y model under 6400M FLOPs.
+    """
     model = RegNet(regnetY_6400M_config, **kwargs)
     return model
