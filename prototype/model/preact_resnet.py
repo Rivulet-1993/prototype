@@ -103,10 +103,22 @@ class PreactBottleneck(nn.Module):
 
 
 class PreactResNet(nn.Module):
-
+    """PreactResNet model class, based on
+    `"Identity Mappings in Deep Residual Networks" <https://arxiv.org/abs/1603.05027>`_
+    """
     def __init__(self, block, layers, num_classes=1000, deep_stem=False,
                  avg_down=False, bypass_last_bn=False,
                  bn=None):
+        r"""
+        Arguments:
+
+        - layers (:obj:`list` of 4 ints): how many layers in each stage
+        - num_classes (:obj:`int`): number of classification classes
+        - deep_stem (:obj:`bool`): whether to use deep_stem as the first conv
+        - avg_down (:obj:`bool`): whether to use avg_down when spatial downsample
+        - bypass_last_bn (:obj:`bool`): whether use bypass_last_bn
+        - bn (:obj:`dict`): definition of batchnorm
+        """
 
         super(PreactResNet, self).__init__()
 
@@ -214,25 +226,40 @@ class PreactResNet(nn.Module):
 
 
 def preact_resnet18(**kwargs):
+    """
+    Constructs a Preact-ResNet-18 model.
+    """
     model = PreactResNet(PreactBasicBlock, [2, 2, 2, 2], **kwargs)
     return model
 
 
 def preact_resnet34(**kwargs):
+    """
+    Constructs a Preact-ResNet-34 model.
+    """
     model = PreactResNet(PreactBasicBlock, [3, 4, 6, 3], **kwargs)
     return model
 
 
 def preact_resnet50(**kwargs):
+    """
+    Constructs a Preact-ResNet-50 model.
+    """
     model = PreactResNet(PreactBottleneck, [3, 4, 6, 3], **kwargs)
     return model
 
 
 def preact_resnet101(**kwargs):
+    """
+    Constructs a Preact-ResNet-101 model.
+    """
     model = PreactResNet(PreactBottleneck, [3, 4, 23, 3], **kwargs)
     return model
 
 
 def preact_resnet152(**kwargs):
+    """
+    Constructs a Preact-ResNet-152 model.
+    """
     model = PreactResNet(PreactBottleneck, [3, 8, 36, 3], **kwargs)
     return model

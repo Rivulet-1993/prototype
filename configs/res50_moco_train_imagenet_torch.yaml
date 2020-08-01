@@ -1,0 +1,83 @@
+model:                              # architecture details
+    type: resnet50_official         # model name
+    kwargs:
+        num_classes: 128            # dimension of features
+        bn:
+            use_sync_bn: False      # whether to use syncbn
+            kwargs: {}              # kwargs of bn
+
+moco:                       # moco details
+    kwargs:
+        K: 65536            # the number of negatives in memory bank
+        T: 0.2              # softmax temperature
+        m: 0.999            # momentum of updating key encoder
+        mlp: True           # whether add projection using multilayer perceptron
+        # group_size: 8     # size of the group to conduct ShuffleBN
+
+dist:                       # distributed communication
+    sync: True              # if 'True', synchronize gradients after forward 
+                            # if 'False', synchronize gradient during forward
+
+optimizer:                  # optimizer details
+    type: SGD
+    kwargs:
+        nesterov: True
+        momentum: 0.9
+        weight_decay: 0.0001
+
+lr_scheduler:                   # learning rate scheduler details
+    type: Cosine
+    kwargs:
+        base_lr: 0.03           # initial leaning rate 
+        warmup_lr: 0.03         # learning rate after warming up
+        warmup_steps: 0         # iterations of warmup
+        min_lr: 0.0             # mimimal learning rate
+        max_iter: 1000000       # total iterations of training
+
+# label_smooth: 0.1         # label smooth ratio
+# mixup: 0.2                # mixup ratio
+# cutmix: 1.0               # cutmix ratio
+
+ema:                        # exponential moving average details
+    enable: False
+    kwargs:
+        decay: 0.999
+
+lms:                      # large model support: utilize cpu to save gpu memory
+    enable: False         # whether to use lms
+    kwargs:
+        limit: 12         # the soft limit in G-bytes on GPU memory allocated for tensors
+
+data:                     # data details
+    type: imagenet        # choices = {'imagenet', 'custom'}
+    read_from: mc         # choices = {'mc', 'fs', 'fake', 'osg'}
+    use_dali: False       # whether to use NVIDIA dali dataloader
+    batch_size: 32        # batch size in one GPU
+    num_workers: 4        # number of subprocesses for data loading
+    pin_memory: True      # whether to copy Tensors into CUDA pinned memory
+    input_size: 224       # training image size
+    test_resize: 256      # testing resize image size
+
+    train:                            # training data details
+        root_dir: /mnt/lustre/share/images/train/
+        meta_file: /mnt/lustre/share/images/meta/train.txt
+        image_reader:                 # image decoding type
+            type: pil
+        sampler:                      # sampler details
+            type: distributed_iteration  # distributed iteration-based sampler
+        transforms:                   # torchvision transforms, flexible
+            type: MOCOV2              # choices = {'MOCOV1', 'MOCOV2', 'SIMCLR'}
+
+saver:                                # saving or loading details
+    print_freq: 10                    # frequence of printing logger
+    val_freq: 5000                    # frequence of evaluating during training
+    save_many: True                   # whether to save checkpoints after every evaluation
+    # pretrain:                       # pretrain model details
+    #     path: /mnt/lustre/share/prototype_model_zoo/resnet50_batch1k_epoch100_nesterov_wd0.0001/checkpoints/ckpt.pth.tar
+    #     ignore:                     # ignore keys in checkpoints
+    #         key:                    # if training from scratch, pop 'optimzier' and 'last_iter'
+    #             - optimizer         # if resuming from ckpt, DO NOT pop them
+    #             - last_iter
+    #         model:                  # ignore modules in model
+    #             - module.fc.weight  # if training with different number of classes, pop the keys 
+    #             - module.fc.bias    # of last fully-connected layers

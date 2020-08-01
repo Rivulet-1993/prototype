@@ -236,6 +236,9 @@ blocks_dict = {
 
 
 class HighResolutionNet(nn.Module):
+    """HRNet model class, based on
+    `"Deep High-Resolution Representation Learning for Visual Recognition" <https://arxiv.org/abs/1908.07919>`_
+    """
 
     def __init__(self, stages, bn=None):
         super(HighResolutionNet, self).__init__()
@@ -491,5 +494,8 @@ class HighResolutionNet(nn.Module):
 
 
 def HRNet(**kwargs):
+    """
+    Constructs a HRNet model.
+    """
     model = HighResolutionNet(**kwargs)
     return model

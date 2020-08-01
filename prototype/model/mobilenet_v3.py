@@ -134,6 +134,10 @@ class InvertedResidual(nn.Module):
 
 
 class MobileNetV3(nn.Module):
+    """
+    MobileNet V3 main class, based on
+    `"Searching for MobileNetV3" <https://arxiv.org/abs/1905.02244>`_
+    """
     def __init__(self,
                  num_classes=1000,
                  scale=1.0,
@@ -141,6 +145,16 @@ class MobileNetV3(nn.Module):
                  round_nearest=8,
                  mode='small',
                  bn=None):
+        r"""
+        Arguments:
+            - num_classes (:obj:`int`): Number of classes
+            - scale (:obj:`float`): Width multiplier, adjusts number of channels in each layer by this amount
+            - dropout (:obj:`float`): Dropout rate
+            - round_nearest (:obj:`int`): Round the number of channels in each layer to be a multiple of this number
+              Set to 1 to turn off rounding
+            - mode (:obj:`string`): model type, 'samll' or 'large'
+            - bn (:obj:`dict`): definition of batchnorm
+        """
         super(MobileNetV3, self).__init__()
 
         global BN
@@ -249,5 +263,8 @@ class MobileNetV3(nn.Module):
 
 
 def mobilenet_v3(**kwargs):
+    """
+    Constructs a MobileNet-V3 model.
+    """
     model = MobileNetV3(**kwargs)
     return model

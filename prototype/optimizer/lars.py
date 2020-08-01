@@ -3,20 +3,17 @@ from torch.optim.optimizer import Optimizer, required
 
 
 class LARS(Optimizer):
-    r"""Implements layer-wise adaptive rate scaling for SGD.
+    r"""Implements layer-wise adaptive rate scaling for SGD, based on
+    `"Large Batch Training of Convolutional Networks" <https://arxiv.org/abs/1708.03888>`_
 
-    Large Batch Training of Convolutional Networks:
-        https://arxiv.org/abs/1708.03888
-
-    Args:
-        params (iterable): iterable of parameters to optimize or dicts defining
-            parameter groups
-        lr (float): learning rate
-        momentum (float, optional): momentum factor (default: 0)
-        weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
-        dampening (float, optional): dampening for momentum (default: 0)
-        eta(float): LARS coefficient (default 0.001)
-        nesterov (bool, optional): enables Nesterov momentum (default: False)
+    Arguments:
+        - params (:obj:`iterable`): iterable of parameters to optimize or dicts defining parameter groups
+        - lr (:obj:`float`): learning rate
+        - momentum (:obj:`float`, optional): momentum factor (default: 0)
+        - weight_decay (:obj:`float`, optional): weight decay (L2 penalty) (default: 0)
+        - dampening (:obj:`float`, optional): dampening for momentum (default: 0)
+        - eta(:obj:`float`): LARS coefficient (default 0.001)
+        - nesterov (:obj:`bool`, optional): enables Nesterov momentum (default: False)
 
     Example:
         >>> optimizer = LARS(model.parameters(), lr=0.1, momentum=0.9, eta=1e-3)
@@ -54,8 +51,7 @@ class LARS(Optimizer):
         """Performs a single optimization step.
 
         Arguments:
-            closure (callable, optional): A closure that reevaluates the model
-                and returns the loss.
+            - closure (:obj:`callable`, optional): A closure that reevaluates the model and returns the loss.
         """
         loss = None
         if closure is not None:

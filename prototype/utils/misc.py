@@ -10,6 +10,8 @@ except ImportError:
     print('Import metrics failed!')
 
 from .dist import simple_group_split
+import yaml
+from easydict import EasyDict
 
 _logger = None
 _logger_fh = None
@@ -57,6 +59,14 @@ def makedir(path):
     if link.get_rank() == 0 and not os.path.exists(path):
         os.makedirs(path)
     link.barrier()
+
+
+def parse_config(config_file):
+    with open(config_file) as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+        # config = yaml.safe_load(f)
+    config = EasyDict(config)
+    return config
 
 
 class RankFilter(logging.Filter):

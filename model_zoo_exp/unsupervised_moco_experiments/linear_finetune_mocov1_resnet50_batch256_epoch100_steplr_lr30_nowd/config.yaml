@@ -1,61 +1,92 @@
-type: imagenet
-version: 0.1
-config:
-    model:
-        type: resnet50_official
-        kwargs:
-            freeze_layer: True
-            bn:
-                use_sync_bn: False
-                kwargs: {}
+model:
+    type: resnet50_official
+    kwargs:
+        freeze_layer: True
+        bn:
+            use_sync_bn: False
+            kwargs: {}
 
-    moco_pretrain: ../mocov1_resnet50_batch512_epoch200_cosinelr_lr0.06_dim128_shuffle16/checkpoints/ckpt.pth.tar
+dist:
+    sync: False
 
-    dist:
-        sync: False
+optimizer:
+    type: SGD
+    kwargs:
+        nesterov: True
+        momentum: 0.9
+        weight_decay: 0.0
 
-    optimizer:
-        type: SGD
-        kwargs:
-            nesterov: True
-            momentum: 0.9
-            weight_decay: 0.0
+lr_scheduler:
+    type: Step
+    kwargs:
+        lr_steps: [300000, 400000]
+        lr_mults: [0.1, 0.1]
+        base_lr: 0.1
+        warmup_lr: 30.0
+        warmup_steps: 10000
+        max_iter: 500000
 
-    lr_scheduler:
-        type: Step
-        kwargs:
-            lr_steps: [300000, 400000]
-            lr_mults: [0.1, 0.1]
+label_smooth: 0.1
+ema:
+    enable: False
 
-            base_lr: 0.1
-            warmup_lr: 30.0
-            warmup_steps: 10000
-            max_iter: 500000
+data:
+    type: imagenet
+    read_from: mc
+    use_dali: False
+    batch_size: 32
+    num_workers: 4
+    pin_memory: True
+    input_size: 224
+    test_resize: 256
 
-    label_smooth: 0.1
-    ema:
-        enable: False
+    train:
+        root_dir: /mnt/lustre/share/images/train/
+        meta_file: /mnt/lustre/share/images/meta/train.txt
+        image_reader:
+            type: pil
+        sampler:
+            type: distributed_iteration
+        transforms:
+            # type: LINEAR
+            - type: random_resized_crop
+              kwargs:
+                  size: 224
+            - type: random_horizontal_flip
+            - type: to_tensor
+            - type: normalize
+              kwargs:
+                  mean: [0.485, 0.456, 0.406]
+                  std: [0.229, 0.224, 0.225]
 
-    data:
-        use_dali: False
-        use_dali_v2: False
-        linear_protocol: True
-        read_from: mc
-        batch_size: 32
-        dali_workers: 4
-        workers: 4
-        pin_memory: True
-        epoch_wise_shuffle: False
+    test:
+        root_dir: /mnt/lustre/share/images/val/
+        meta_file: /mnt/lustre/share/images/meta/val.txt
+        image_reader:
+            type: pil
+        sampler:
+            type: distributed
+        transforms:
+            # type: ONECROP
+            - type: resize
+              kwargs:
+                  size: [256, 256]
+            - type: center_crop
+              kwargs:
+                  size: [224, 224]
+            - type: to_tensor
+            - type: normalize
+              kwargs:
+                  mean: [0.485, 0.456, 0.406]
+                  std: [0.229, 0.224, 0.225]
+        evaluator:
+            type: imagenet
+            kwargs:
+                topk: [1, 5]
 
-        input_size: 224
-        test_resize: 256
-        augmentation:
-            colorjitter:
-        train_root: /mnt/lustre/share/images/train
-        train_meta: /mnt/lustre/share/images/meta/train.txt
-        val_root: /mnt/lustre/share/images/val
-        val_meta: /mnt/lustre/share/images/meta/val.txt
-
+saver:
     print_freq: 10
-    val_freq: 1000
+    val_freq: 5000
     save_many: False
+    pretrain:
+        path: ../mocov1_resnet50_batch512_epoch200_cosinelr_lr0.06_dim128_shuffle16/checkpoints/ckpt.pth.tar

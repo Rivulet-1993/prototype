@@ -29,6 +29,7 @@ from .nas_zoo import (  # noqa: F401
     mbnas_t29_x0_84, mbnas_t47_x1_00, supnas_t18_x1_00, supnas_t37_x0_92, supnas_t44_x1_00,
     supnas_t66_x1_11, supnas_t100_x0_96, nas_custom
 )
+from .nas_backbone import nas_backbone  # noqa: F401
 from .resnet_official import (  # noqa: F401
     resnet18_official, resnet34_official, resnet50_official, resnet101_official, resnet152_official,
     resnext50_32x4d, resnext101_32x8d, wide_resnet50_2, wide_resnet101_2
@@ -52,7 +53,7 @@ from .ibnnet import resnet50_ibn_a, resnet101_ibn_a, resnet152_ibn_a  # noqa: F4
 def model_entry(config):
 
     if config['type'] not in globals():
-        from prototype.spring.wrapper import ClsSpringCommonInterface
-        return ClsSpringCommonInterface.external_model_builder[config['type']](**config['kwargs'])
+        from prototype.spring import PrototypeHelper
+        return PrototypeHelper.external_model_builder[config['type']](**config['kwargs'])
 
     return globals()[config['type']](**config['kwargs'])
