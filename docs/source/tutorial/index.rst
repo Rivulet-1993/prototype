@@ -104,7 +104,7 @@ If finetuning, add information and pop modules in ``config.yaml``
     sh run.sh Test 16
 
 ToCaffe and ToKestrel
----------
+---------------------------
 
 1. Check ``config.yaml``, ``run.sh`` and ``ckpt`` under your workspace
 
