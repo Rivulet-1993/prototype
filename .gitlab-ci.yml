@@ -28,6 +28,7 @@ pages:
         - pip install http://10.10.40.93/packages/sphinx_rtd_theme-0.4.3-py2.py3-none-any.whl
         - pip install sphinxcontrib-versioning
         - pip install easydict
+        - pip install pyyaml
         # - export LC_ALL=C.UTF-8
         # - export LANG=C.UTF-8
         - sphinx-versioning build docs/source docs/_build/html
