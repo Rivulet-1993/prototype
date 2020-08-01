@@ -128,24 +128,9 @@ class Bottleneck(nn.Module):
 
 
 class ResNeSt(nn.Module):
-    """ResNet Variants
-
-    Parameters
-    ----------
-    block : Block
-        Class for the residual block. Options are BasicBlockV1, BottleneckV1.
-    layers : list of int
-        Numbers of layers in each block
-    classes : int, default 1000
-        Number of classification classes.
-    dilated : bool, default False
-        Applying dilation strategy to pretrained ResNet yielding a stride-8 model,
-        typically used in Semantic Segmentation.
-    norm_layer : object
-        Normalization layer used in backbone network (default: :class:`mxnet.gluon.nn.BatchNorm`;
-        for Synchronized Cross-GPU BachNormalization).
+    """ResNet Variants, based on
+    `"ResNeSt: Split-Attention Networks" <https://arxiv.org/abs/2004.08955>`_
     """
-
     def __init__(self, block, layers, radix=1, groups=1, bottleneck_width=64,
                  num_classes=1000, dilated=False, dilation=1,
                  deep_stem=False, stem_width=64, avg_down=False,
@@ -153,6 +138,19 @@ class ResNeSt(nn.Module):
                  avd=False, avd_first=False,
                  final_drop=0.0, dropblock_prob=0,
                  last_gamma=False, norm_layer=None, bn=None):
+        """
+        Arguments:
+
+        - block (:obj:`Block`): Class for the residual block. Options are BasicBlockV1, BottleneckV1
+        - layers (:obj:`list` of :obj:`int`): Numbers of layers in each block
+        - classes (:obj:`int`, default 1000): Number of classification classes
+        - dilated (:obj:`bool`, default False): Applying dilation strategy to \
+            pretrained ResNet yielding a stride-8 model. \
+            typically used in Semantic Segmentation
+        - norm_layer (:obj:`object`): Normalization layer used in backbone network \
+            (default: :class:`mxnet.gluon.nn.BatchNorm`. \
+            for Synchronized Cross-GPU BachNormalization)
+        """
         self.cardinality = groups
         self.bottleneck_width = bottleneck_width
         # ResNet-D params
@@ -311,6 +309,9 @@ class ResNeSt(nn.Module):
 
 
 def resnest50(**kwargs):
+    """
+    Constructs a ResNeSt-50 model.
+    """
     model = ResNeSt(Bottleneck, [3, 4, 6, 3],
                     radix=2, groups=1, bottleneck_width=64,
                     deep_stem=True, stem_width=32, avg_down=True,
@@ -319,6 +320,9 @@ def resnest50(**kwargs):
 
 
 def resnest101(pretrained=False, **kwargs):
+    """
+    Constructs a ResNeSt-101 model.
+    """
     model = ResNeSt(Bottleneck, [3, 4, 23, 3],
                     radix=2, groups=1, bottleneck_width=64,
                     deep_stem=True, stem_width=64, avg_down=True,
@@ -327,6 +331,9 @@ def resnest101(pretrained=False, **kwargs):
 
 
 def resnest200(pretrained=False, **kwargs):
+    """
+    Constructs a ResNeSt-200 model.
+    """
     model = ResNeSt(Bottleneck, [3, 24, 36, 3],
                     radix=2, groups=1, bottleneck_width=64,
                     deep_stem=True, stem_width=64, avg_down=True,
@@ -335,6 +342,9 @@ def resnest200(pretrained=False, **kwargs):
 
 
 def resnest269(pretrained=False, **kwargs):
+    """
+    Constructs a ResNeSt-269 model.
+    """
     model = ResNeSt(Bottleneck, [3, 30, 48, 8],
                     radix=2, groups=1, bottleneck_width=64,
                     deep_stem=True, stem_width=64, avg_down=True,

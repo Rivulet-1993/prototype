@@ -41,7 +41,7 @@ class _WarmUpLRScheduler(_LRScheduler):
     Paper: Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour
     Link: https://arxiv.org/pdf/1706.02677.pdf
 
-    Args:
+    Arguments:
         optimizer (Optimizer): Wrapped optimizer.
         base_lr (float): initial learning rate.
         warmup_lr (float): target learning rate after warmup.
@@ -82,30 +82,30 @@ class StepLRScheduler(_WarmUpLRScheduler):
     r"""Decays the learning rate of each parameter group by lr_multi every
     step_size iterations.
 
-    Args:
-        optimizer (Optimizer): Wrapped optimizer.
-        lr_steps (list): milestones to adjust learning rate.
-        lr_mults (list): coefficients to decay learning rate.
-        base_lr (float): initial learning rate.
-        warmup_lr (float): target learning rate after warmup.
-        warmup_steps (int): total interations of warmup phrase.
-        max_iter (int): maximum/total interrations of training.
-        last_iter (int): the index of last iteration.
+    Arguments:
+        - optimizer (:obj:`Optimizer`): Wrapped optimizer.
+        - lr_steps (:obj:`list`): milestones to adjust learning rate.
+        - lr_mults (:obj:`list`): coefficients to decay learning rate.
+        - base_lr (:obj:`float`): initial learning rate.
+        - warmup_lr (:obj:`float`): target learning rate after warmup.
+        - warmup_steps (:obj:`int`): total interations of warmup phrase.
+        - max_iter (:obj:`int`): maximum/total interrations of training.
+        - last_iter (:obj:`int`): the index of last iteration.
 
     Example:
-    >>> # Assuming optimizer uses lr = 0.1 for all groups
-    >>> # base_lr = 0.1
-    >>> # warmup_lr = 0.4
-    >>> # warmup_steps = 2500
-    >>> # lr_steps = [37500, 75000, 112500]
-    >>> # lr_mults = [0.1, 0.1, 0.1]
-    >>> # max_iter = 125000
-    >>> # ...
-    >>> scheduler = StepLRScheduler(optimizer, [37500, 75000, 112500], [0.1, 0.1, 0.1],
-    >>>                 base_lr = 0.1, warmup_lr = 0.4, max_iter = 125000, warmup_steps = 2500)
-    >>> for iteration in range(max_iteration):
-    >>>     scheduler.step(iteration)
-    >>>     scheduler.get_lr()[0]
+        >>> # Assuming optimizer uses lr = 0.1 for all groups
+        >>> # base_lr = 0.1
+        >>> # warmup_lr = 0.4
+        >>> # warmup_steps = 2500
+        >>> # lr_steps = [37500, 75000, 112500]
+        >>> # lr_mults = [0.1, 0.1, 0.1]
+        >>> # max_iter = 125000
+        >>> # ...
+        >>> scheduler = StepLRScheduler(optimizer, [37500, 75000, 112500], [0.1, 0.1, 0.1],
+        >>>                 base_lr = 0.1, warmup_lr = 0.4, max_iter = 125000, warmup_steps = 2500)
+        >>> for iteration in range(max_iteration):
+        >>>     scheduler.step(iteration)
+        >>>     scheduler.get_lr()[0]
 
     """
     def __init__(self, optimizer, lr_steps, lr_mults, base_lr, warmup_lr, warmup_steps, max_iter, last_iter=0):
@@ -141,30 +141,30 @@ class StepDecayLRScheduler(_WarmUpLRScheduler):
     Paper: EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks
     Link: https://arxiv.org/abs/1905.11946
 
-    Args:
-        optimizer (Optimizer): Wrapped optimizer.
-        step_size (int): iterations to decay.
-        decay (float): coefficients to decay learning rate.
-        base_lr (float): initial learning rate.
-        warmup_lr (float): target learning rate after warmup.
-        warmup_steps (int): total interations of warmup phrase.
-        max_iter (int): maximum/total interrations of training.
-        last_iter (int): the index of last iteration.
+    Arguments:
+        - optimizer (:obj:`Optimizer`): Wrapped optimizer.
+        - step_size (:obj:`int`): iterations to decay.
+        - decay (:obj:`float`): coefficients to decay learning rate.
+        - base_lr (:obj:`float`): initial learning rate.
+        - warmup_lr (:obj:`float`): target learning rate after warmup.
+        - warmup_steps (:obj:`int`): total interations of warmup phrase.
+        - max_iter (:obj:`int`): maximum/total interrations of training.
+        - last_iter (:obj:`int`): the index of last iteration.
 
     Example:
-    >>> # Assuming optimizer uses lr = 0.1 for all groups
-    >>> # base_lr = 0.1
-    >>> # warmup_lr = 0.4
-    >>> # warmup_steps = 2500
-    >>> # step_size = 3500
-    >>> # decay = 0.97
-    >>> # max_iter = 437500
-    >>> # ...
-    >>> scheduler = StepDecayLRScheduler(optimizer, 3500, 0.97,
-    >>>                 base_lr = 0.1, warmup_lr = 0.4, max_iter = 437500, warmup_steps = 2500)
-    >>> for iteration in range(max_iteration):
-    >>>     scheduler.step(iteration)
-    >>>     scheduler.get_lr()[0]
+        >>> # Assuming optimizer uses lr = 0.1 for all groups
+        >>> # base_lr = 0.1
+        >>> # warmup_lr = 0.4
+        >>> # warmup_steps = 2500
+        >>> # step_size = 3500
+        >>> # decay = 0.97
+        >>> # max_iter = 437500
+        >>> # ...
+        >>> scheduler = StepDecayLRScheduler(optimizer, 3500, 0.97,
+        >>>                 base_lr = 0.1, warmup_lr = 0.4, max_iter = 437500, warmup_steps = 2500)
+        >>> for iteration in range(max_iteration):
+        >>>     scheduler.step(iteration)
+        >>>     scheduler.get_lr()[0]
 
     """
     def __init__(self, optimizer, step_size, decay, base_lr, warmup_lr, warmup_steps, max_iter, last_iter=0):
@@ -190,28 +190,28 @@ class CosineLRScheduler(_WarmUpLRScheduler):
     r"""Set the learning rate of each parameter group using a cosine annealing
     schedule.
 
-    Args:
-        optimizer (Optimizer): Wrapped optimizer.
-        max_iter (int): maximum/total interrations of training.
-        min_lr (float): minimum learning rate. Default: 0.
-        base_lr (float): initial learning rate.
-        warmup_lr (float): target learning rate after warmup.
-        warmup_steps (int): total interations of warmup phrase.
-        last_iter (int): the index of last iteration.
+    Arguments:
+        - optimizer (:obj:`Optimizer`): Wrapped optimizer.
+        - max_iter (:obj:`int`): maximum/total interrations of training.
+        - min_lr (:obj:`float`): minimum learning rate. Default: 0.
+        - base_lr (:obj:`float`): initial learning rate.
+        - warmup_lr (:obj:`float`): target learning rate after warmup.
+        - warmup_steps (:obj:`int`): total interations of warmup phrase.
+        - last_iter (:obj:`int`): the index of last iteration.
 
     Example:
-    >>> # Assuming optimizer uses lr = 0.1 for all groups
-    >>> # base_lr = 0.1
-    >>> # warmup_lr = 0.4
-    >>> # warmup_steps = 2500
-    >>> # min_lr = 0.0
-    >>> # max_iter: 125000
-    >>> # ...
-    >>> scheduler = CosineLRScheduler(optimizer, 125000, 0.0,
-    >>>                 base_lr = 0.1, warmup_lr = 0.4, max_iter = 125000, warmup_steps = 2500)
-    >>> for iteration in range(max_iteration):
-    >>>     scheduler.step(iteration)
-    >>>     scheduler.get_lr()[0]
+        >>> # Assuming optimizer uses lr = 0.1 for all groups
+        >>> # base_lr = 0.1
+        >>> # warmup_lr = 0.4
+        >>> # warmup_steps = 2500
+        >>> # min_lr = 0.0
+        >>> # max_iter: 125000
+        >>> # ...
+        >>> scheduler = CosineLRScheduler(optimizer, 125000, 0.0,
+        >>>                 base_lr = 0.1, warmup_lr = 0.4, max_iter = 125000, warmup_steps = 2500)
+        >>> for iteration in range(max_iteration):
+        >>>     scheduler.step(iteration)
+        >>>     scheduler.get_lr()[0]
 
     """
     def __init__(self, optimizer, max_iter, min_lr, base_lr, warmup_lr, warmup_steps, last_iter=0):
@@ -240,27 +240,27 @@ class PolynomialLRScheduler(_WarmUpLRScheduler):
     Link: https://arxiv.org/abs/1708.03888
 
     Args:
-        optimizer (Optimizer): Wrapped optimizer.
-        power (float): polynomial coefficient.
-        max_iter (int): maximum/total interrations of training.
-        base_lr (float): initial learning rate.
-        warmup_lr (float): target learning rate after warmup.
-        warmup_steps (int): total interations of warmup phrase.
-        last_iter (int): the index of last iteration.
+        - optimizer (:obj:`Optimizer`): Wrapped optimizer.
+        - power (:obj:`float`): polynomial coefficient.
+        - max_iter (:obj:`int`): maximum/total interrations of training.
+        - base_lr (:obj:`float`): initial learning rate.
+        - warmup_lr (:obj:`float`): target learning rate after warmup.
+        - warmup_steps (:obj:`int`): total interations of warmup phrase.
+        - last_iter (:obj:`int`): the index of last iteration.
 
     Example:
-    >>> # Assuming optimizer uses lr = 0.1 for all groups
-    >>> # power = 2.0
-    >>> # base_lr = 0.1
-    >>> # warmup_lr = 0.4
-    >>> # warmup_steps = 2500
-    >>> # max_iter: 125000
-    >>> # ...
-    >>> scheduler = PolynomialLRScheduler(optimizer, 2.0,
-    >>>                 base_lr = 0.1, warmup_lr = 0.4, max_iter = 125000, warmup_steps = 2500)
-    >>> for iteration in range(max_iteration):
-    >>>     scheduler.step(iteration)
-    >>>     scheduler.get_lr()[0]
+        >>> # Assuming optimizer uses lr = 0.1 for all groups
+        >>> # power = 2.0
+        >>> # base_lr = 0.1
+        >>> # warmup_lr = 0.4
+        >>> # warmup_steps = 2500
+        >>> # max_iter: 125000
+        >>> # ...
+        >>> scheduler = PolynomialLRScheduler(optimizer, 2.0,
+        >>>                 base_lr = 0.1, warmup_lr = 0.4, max_iter = 125000, warmup_steps = 2500)
+        >>> for iteration in range(max_iteration):
+        >>>     scheduler.step(iteration)
+        >>>     scheduler.get_lr()[0]
 
     """
     def __init__(self, optimizer, power, max_iter, base_lr, warmup_lr, warmup_steps, last_iter=0):

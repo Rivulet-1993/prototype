@@ -70,6 +70,10 @@ class InvertedResidual(nn.Module):
 
 
 class MobileNetV2(nn.Module):
+    """
+    MobileNet V2 main class, based on
+    `"MobileNetV2: Inverted Residuals and Linear Bottlenecks" <https://arxiv.org/abs/1801.04381>`_
+    """
     def __init__(self,
                  num_classes=1000,
                  scale=1.0,
@@ -78,15 +82,15 @@ class MobileNetV2(nn.Module):
                  block=InvertedResidual,
                  dropout=0.2,
                  bn=None):
-        """
-        MobileNet V2 main class
-        Args:
-            num_classes (int): Number of classes
-            scale (float): Width multiplier - adjusts number of channels in each layer by this amount
-            inverted_residual_setting: Network structure
-            round_nearest (int): Round the number of channels in each layer to be a multiple of this number
-            Set to 1 to turn off rounding
-            block: Module specifying inverted residual building block for mobilenet
+        r"""
+        Arguments:
+            - num_classes (:obj:`int`): Number of classes
+            - scale (:obj:`float`): Width multiplier, adjusts number of channels in each layer by this amount
+            - inverted_residual_setting: Network structure
+            - round_nearest (:obj:`int`): Round the number of channels in each layer to be a multiple of this number
+              Set to 1 to turn off rounding
+            - block: Module specifying inverted residual building block for mobilenet
+            - bn (:obj:`dict`): definition of batchnorm
         """
         super(MobileNetV2, self).__init__()
 
@@ -172,5 +176,8 @@ class MobileNetV2(nn.Module):
 
 
 def mobilenet_v2(**kwargs):
+    """
+    Constructs a MobileNet-V2 model.
+    """
     model = MobileNetV2(**kwargs)
     return model
