@@ -111,6 +111,7 @@ class ResNet(nn.Module):
     def __init__(self,
                  block,
                  layers,
+                 inplanes=64,
                  num_classes=1000,
                  zero_init_residual=False,
                  groups=1,
@@ -135,7 +136,7 @@ class ResNet(nn.Module):
 
         self._norm_layer = norm_layer
 
-        self.inplanes = 64
+        self.inplanes = inplanes
         self.dilation = 1
         self.deep_stem = deep_stem
         self.avg_down = avg_down
@@ -154,20 +155,16 @@ class ResNet(nn.Module):
 
         if self.deep_stem:
             self.conv1 = nn.Sequential(
-                nn.Conv2d(3, 32, kernel_size=3, stride=2,
-                          padding=1, bias=False),
-                norm_layer(32),
+                nn.Conv2d(3, inplanes // 2, kernel_size=3, stride=2, padding=1, bias=False),
+                norm_layer(inplanes // 2),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(32, 32, kernel_size=3, stride=1,
-                          padding=1, bias=False),
-                norm_layer(32),
+                nn.Conv2d(inplanes // 2, inplanes // 2, kernel_size=3, stride=1, padding=1, bias=False),
+                norm_layer(inplanes // 2),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(32, 64, kernel_size=3, stride=1,
-                          padding=1, bias=False),
+                nn.Conv2d(inplanes // 2, inplanes, kernel_size=3, stride=1, padding=1, bias=False),
             )
         else:
-            self.conv1 = nn.Conv2d(3, 64, kernel_size=7,
-                                   stride=2, padding=3, bias=False)
+            self.conv1 = nn.Conv2d(3, inplanes, kernel_size=7, stride=2, padding=3, bias=False)
 
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
