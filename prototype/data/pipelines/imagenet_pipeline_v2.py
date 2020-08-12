@@ -47,9 +47,9 @@ class ImageNetTrainPipeV2(CustomPipeline):
         dali_device = "gpu"
         # This padding sets the size of the internal nvJPEG buffers to be able to handle all
         # images from full-sized ImageNet without additional reallocations
-        self.decode = ops.nvJPEGDecoder(device="mixed", output_type=types.RGB,
-                                        device_memory_padding=211025920,
-                                        host_memory_padding=140544512)
+        self.decode = ops.ImageDecoder(device="mixed", output_type=types.RGB,
+                                       device_memory_padding=211025920,
+                                       host_memory_padding=140544512)
 
         self.res = ops.RandomResizedCrop(device=dali_device, size=(crop, crop))
 
@@ -91,7 +91,7 @@ class ImageNetValPipeV2(CustomPipeline):
                                      file_list=data_list,
                                      sampler_index=list(sampler))
 
-        self.decode = ops.nvJPEGDecoder(device="mixed", output_type=types.RGB)
+        self.decode = ops.ImageDecoder(device="mixed", output_type=types.RGB)
         self.res = ops.Resize(device="gpu", resize_shorter=size)
         self.cmnp = ops.CropMirrorNormalize(device="gpu",
                                             output_dtype=types.FLOAT,
