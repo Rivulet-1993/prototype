@@ -5,12 +5,14 @@ import shutil
 import numpy as np
 import yaml
 import json
+
+import torch
 import torch.nn as nn
 import linklink as link
 
 from prototype.utils.dist import link_dist
 from prototype.solver.cls_solver import ClsSolver
-from prototype.utils.misc import parse_config
+from prototype.utils.misc import parse_config, load_state_model
 from prototype.utils.nnie_helper import generate_nnie_config
 
 
@@ -35,6 +37,11 @@ class KestrelSolver(ClsSolver):
         self.config = parse_config(config_file)
         self.setup_env()
         self.build_model()
+        # 'recover' only for convert
+        if self.recover:
+            self.logger.info(f"Recover exist! Again Recovering from {self.recover}")
+            recover_state = torch.load(self.recover, 'cpu')
+            load_state_model(self.model, recover_state['model'])
         if self.config.to_kestrel.get('add_softmax'):
             self.model = Wrapper(self.model)
 
@@ -110,8 +117,8 @@ class KestrelSolver(ClsSolver):
             prototxt, caffemodel, version, to_kestrel_yml, model_name)
 
         self.logger.info('Converting Model to Kestrel...')
-        if self.dist.rank == 0:
-            os.system(cmd)
+        # if self.dist.rank == 0:
+        #     os.system(cmd)
 
         link.synchronize()
         self.logger.info('To Kestrel Done!')

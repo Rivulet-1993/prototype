@@ -37,6 +37,7 @@ def generate_nnie_config(nnie_cfg, config, nnie_out_path='./config.json', tensor
     mean = config.to_kestrel.get('pixel_means', [123.675, 116.28, 103.53])
     std = config.to_kestrel.get('pixel_stds', [58.395, 57.12, 57.375])
     resize_hw = config.to_kestrel.get('resize_hw', (224, 224))
+    resize_hw = tuple(resize_hw)
     data_num = len(image_list)
     image_bin_path = generate_image_bins(image_list, mean, std, resize_hw)
     default_config['data_num'] = data_num
