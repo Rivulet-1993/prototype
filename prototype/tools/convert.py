@@ -117,8 +117,8 @@ class KestrelSolver(ClsSolver):
             prototxt, caffemodel, version, to_kestrel_yml, model_name)
 
         self.logger.info('Converting Model to Kestrel...')
-        # if self.dist.rank == 0:
-        #     os.system(cmd)
+        if self.dist.rank == 0:
+            os.system(cmd)
 
         link.synchronize()
         self.logger.info('To Kestrel Done!')
