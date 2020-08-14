@@ -102,7 +102,8 @@ class ResNet(nn.Module):
                  deep_stem=False,
                  avg_down=False,
                  bypass_last_bn=False,
-                 bn=None):
+                 bn=None,
+                 nnie_type=False):
         r"""
         Arguments:
 
@@ -142,7 +143,10 @@ class ResNet(nn.Module):
             self.conv1 = nn.Conv2d(3, inplanes, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = BN(inplanes)
         self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        if nnie_type:
+            self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=True)
+        else:
+            self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
