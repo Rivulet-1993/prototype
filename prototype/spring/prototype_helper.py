@@ -21,6 +21,7 @@ from prototype.utils.misc import ( # noqa
     param_group_all, AverageMeter, accuracy, modify_state, load_state_optimizer
 )
 from prototype.utils.ema import EMA
+from prototype.utils.nnie_helper import generate_nnie_config
 from prototype.model import model_entry
 from prototype.optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD # noqa
 from prototype.lr_scheduler import scheduler_entry
@@ -732,7 +733,6 @@ class PrototypeHelper(SpringCommonInterface):
         # acquire version and model_name
         version = self.config.to_kestrel.get('version', '1.0.0')
         model_name = self.config.to_kestrel.get('model_name', self.config.model.type)
-
         kestrel_model = '{}_{}.tar'.format(model_name, version)
         to_kestrel_yml = 'temp_to_kestrel.yml'
         # acquire to_kestrel params
@@ -742,15 +742,26 @@ class PrototypeHelper(SpringCommonInterface):
 
         cmd = 'python -m spring.nart.tools.kestrel.classifier {} {} -v {} -c {} -n {}'.format(
             prototxt, caffemodel, version, to_kestrel_yml, model_name)
-
         self.logger.info('Converting Model to Kestrel...')
         if self.dist.rank == 0:
             os.system(cmd)
-
         link.synchronize()
         self.logger.info('To Kestrel Done!')
-
         if save_to is None:
             save_to = self.config['to_kestrel']['save_to']
         shutil.move(kestrel_model, save_to)
         self.logger.info('save kestrel model to: {}'.format(save_to))
+
+        # convert model to nnie
+        nnie_cfg = self.config.to_kestrel.get('nnie', None)
+        if nnie_cfg is not None:
+            nnie_cfg_path = generate_nnie_config(nnie_cfg, self.config)
+            nnie_cmd = 'python -m spring.nart.switch -c {} -t nnie {} {}'.format(
+                nnie_cfg_path, prototxt, caffemodel)
+            self.logger.info('Converting Model to NNIE...')
+            if self.dist.rank == 0:
+                os.system(nnie_cmd)
+            link.synchronize()
+            self.logger.info('To NNIE Done!')
+
+        return save_to

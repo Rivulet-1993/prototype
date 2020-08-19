@@ -5,12 +5,15 @@ import shutil
 import numpy as np
 import yaml
 import json
+
+import torch
 import torch.nn as nn
 import linklink as link
 
 from prototype.utils.dist import link_dist
 from prototype.solver.cls_solver import ClsSolver
-from prototype.utils.misc import parse_config
+from prototype.utils.misc import parse_config, load_state_model
+from prototype.utils.nnie_helper import generate_nnie_config
 
 
 class Wrapper(nn.Module):
@@ -34,6 +37,11 @@ class KestrelSolver(ClsSolver):
         self.config = parse_config(config_file)
         self.setup_env()
         self.build_model()
+        # 'recover' only for convert
+        if self.recover:
+            self.logger.info(f"Recover exist! Again Recovering from {self.recover}")
+            recover_state = torch.load(self.recover, 'cpu')
+            load_state_model(self.model, recover_state['model'])
         if self.config.to_kestrel.get('add_softmax'):
             self.model = Wrapper(self.model)
 
@@ -51,26 +59,23 @@ class KestrelSolver(ClsSolver):
                             input_names=['data'],
                             output_names=['out'])
 
+    def to_nnie(self, nnie_cfg, config, prototxt, caffemodel):
+        nnie_cfg_path = generate_nnie_config(nnie_cfg, config)
+        nnie_cmd = 'python -m spring.nart.switch -c {} -t nnie {} {}'.format(
+            nnie_cfg_path, prototxt, caffemodel)
+        os.system(nnie_cmd)
+
     def refactor_config(self):
         '''Prepare configuration for kestrel classifier model. For details:
         https://confluence.sensetime.com/display/VIBT/nart.tools.kestrel.classifier
         '''
         kestrel_config = EasyDict()
+        kestrel_config['pixel_means'] = self.config.to_kestrel.get('pixel_means', [123.675, 116.28, 103.53])
+        kestrel_config['pixel_stds'] = self.config.to_kestrel.get('pixel_stds', [58.395, 57.12, 57.375])
 
-        if hasattr(self.config, 'pixel_means'):
-            kestrel_config['pixel_means'] = self.config['pixel_means']
-        else:
-            kestrel_config['pixel_means'] = [124.16, 116.736, 103.936]
-
-        if hasattr(self.config, 'pixel_stds'):
-            kestrel_config['pixel_stds'] = self.config['pixel_stds']
-        else:
-            kestrel_config['pixel_stds'] = [58.624, 57.344, 57.6]
-
-        kestrel_config['is_rgb'] = self.config.get('is_rgb', True)
-        kestrel_config['save_all_label'] = self.config.get(
-            'save_all_label', True)
-        kestrel_config['type'] = self.config.get('type', 'ImageNet')
+        kestrel_config['is_rgb'] = self.config.to_kestrel.get('is_rgb', True)
+        kestrel_config['save_all_label'] = self.config.to_kestrel.get('save_all_label', True)
+        kestrel_config['type'] = self.config.to_kestrel.get('type', 'ImageNet')
 
         if self.config.get('to_kestrel') and self.config.to_kestrel.get('class_label'):
             kestrel_config['class_label'] = self.config.to_kestrel['class_label']
@@ -126,6 +131,15 @@ class KestrelSolver(ClsSolver):
         shutil.move(kestrel_model, save_to)
         link.synchronize()
         self.logger.info('Save kestrel model to: {}'.format(save_to))
+
+        # convert model to nnie
+        nnie_cfg = self.config.to_kestrel.get('nnie', None)
+        if nnie_cfg is not None:
+            self.logger.info('Converting Model to NNIE...')
+            if self.dist.rank == 0:
+                self.to_nnie(nnie_cfg, self.config, prototxt, caffemodel)
+            link.synchronize()
+            self.logger.info('To NNIE Done!')
 
 
 @link_dist

@@ -97,11 +97,13 @@ class ResNet(nn.Module):
     def __init__(self,
                  block,
                  layers,
+                 inplanes=64,
                  num_classes=1000,
                  deep_stem=False,
                  avg_down=False,
                  bypass_last_bn=False,
-                 bn=None):
+                 bn=None,
+                 nnie_type=False):
         r"""
         Arguments:
 
@@ -122,26 +124,29 @@ class ResNet(nn.Module):
         BN = get_bn(bn)
         bypass_bn_weight_list = []
 
-        self.inplanes = 64
+        self.inplanes = inplanes
         self.deep_stem = deep_stem
         self.avg_down = avg_down
         self.logger = get_logger(__name__)
 
         if self.deep_stem:
             self.conv1 = nn.Sequential(
-                        nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1, bias=False),
-                        BN(32),
+                        nn.Conv2d(3, inplanes // 2, kernel_size=3, stride=2, padding=1, bias=False),
+                        BN(inplanes // 2),
                         nn.ReLU(inplace=True),
-                        nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1, bias=False),
-                        BN(32),
+                        nn.Conv2d(inplanes // 2, inplanes // 2, kernel_size=3, stride=1, padding=1, bias=False),
+                        BN(inplanes // 2),
                         nn.ReLU(inplace=True),
-                        nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1, bias=False),
+                        nn.Conv2d(inplanes // 2, inplanes, kernel_size=3, stride=1, padding=1, bias=False),
                     )
         else:
-            self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.bn1 = BN(64)
+            self.conv1 = nn.Conv2d(3, inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+        self.bn1 = BN(inplanes)
         self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        if nnie_type:
+            self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=True)
+        else:
+            self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
