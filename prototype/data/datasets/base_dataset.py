@@ -1,10 +1,12 @@
-import mc
 import os
 import linklink as link
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-
+try:
+    import mc
+except ImportError:
+    pass
 # import ceph
 # from petrel_client.client import Client
 
