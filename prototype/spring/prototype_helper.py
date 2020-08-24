@@ -208,7 +208,7 @@ class PrototypeHelper(SpringCommonInterface):
         self.config.data.last_iter = self.state['last_iter']
         self.data_loaders = {}
         for data_type in self.config.data.keys():
-            if data_type in ['train', 'test', 'val', 'arch']:
+            if data_type in ['train', 'test', 'val', 'arch', 'inference']:
                 if self.config.data.type == 'imagenet':
                     # imagenet type
                     if data_type == 'train':
@@ -778,3 +778,41 @@ class PrototypeHelper(SpringCommonInterface):
             self.logger.info('To NNIE Done!')
 
         return save_to
+
+    # sci
+    @torch.no_grad()
+    def inference(self):
+        '''
+        Inference the inference dataset and save the raw results (not the evaluation value) in the result file.
+        The inference dataset and correspoding config should be set at the config file.
+        The result file should be in json format.
+
+        Returns:
+            str: The absolute path to the saved results file.
+        '''
+        assert 'inference' in self.data_loaders.keys()
+        self.model.eval()
+        res_file = os.path.join(self.path.result_path, f'infer_results.txt.rank{self.dist.rank}')
+        writer = open(res_file, 'w')
+        for batch_idx, batch in enumerate(self.data_loaders['inference']):
+            input = batch['image']
+            input = input.cuda().half() if self.fp16 else input.cuda()
+            # compute output
+            logits = self.model(input)
+            scores = F.softmax(logits, dim=1)
+            # compute prediction
+            _, preds = logits.data.topk(k=1, dim=1)
+            preds = preds.view(-1)
+            # update batch information
+            batch.update({'prediction': preds})
+            batch.update({'score': scores})
+            # save prediction information
+            self.data_loaders['inference'].dataset.dump(writer, batch)
+
+        writer.close()
+        link.barrier()
+        if self.dist.rank == 0:
+            infer_res_file = self.data_loaders['inference'].dataset.inference(res_file)
+        link.barrier()
+        self.model.train()
+        return infer_res_file

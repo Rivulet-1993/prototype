@@ -127,6 +127,15 @@ class BaseDataset(Dataset):
         merged_fd.close()
         return merged_file
 
+    def inference(self, res_file):
+        """
+        Arguments:
+            - res_file (:obj:`str`): filename of result
+        """
+        prefix = res_file.rstrip('0123456789')
+        merged_res_file = self.merge(prefix)
+        return merged_res_file
+
     def evaluate(self, res_file):
         """
         Arguments:
