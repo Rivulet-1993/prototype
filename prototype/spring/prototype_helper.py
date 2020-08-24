@@ -761,6 +761,19 @@ class PrototypeHelper(SpringCommonInterface):
             self.logger.info('Converting Model to NNIE...')
             if self.dist.rank == 0:
                 os.system(nnie_cmd)
+                # refactor json
+                assert os.path.exists("parameters.json")
+                with open("parameters.json", "r") as f:
+                    params = json.load(f)
+                params["model_files"]["net"]["net"] = "engine.bin"
+                params["model_files"]["net"]["backend"] = "kestrel_nart"
+                with open("parameters.json", "w") as f:
+                    json.dump(params, f, indent=2)
+                tar_cmd = 'tar cvf {} engine.bin engine.bin.json meta.json meta.conf \
+                    parameters.json category_param.json'.format(model_name + "_nnie.tar")
+                os.system(tar_cmd)
+                self.logger.info(f"generate {model_name + '_nnie.tar'} done!")
+
             link.synchronize()
             self.logger.info('To NNIE Done!')
 
