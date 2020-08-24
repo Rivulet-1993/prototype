@@ -56,8 +56,9 @@ class CustomDataset(BaseDataset):
         filename = osp.join(self.root_dir, curr_meta['filename'])
         # add root_dir to filename
         curr_meta['filename'] = filename
-        label_name = curr_meta['label_name']
-        label = int(curr_meta['label'])
+        # 'label' and 'label_name' is optional for inference
+        label = int(curr_meta['label']) if 'label' in curr_meta else 0
+        label_name = curr_meta['label_name'] if 'label_name' in curr_meta else 'inference'
 
         img_bytes = self.read_file(curr_meta)
         img = self.image_reader(img_bytes, filename)
