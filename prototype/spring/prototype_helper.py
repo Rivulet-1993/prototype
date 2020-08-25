@@ -755,6 +755,7 @@ class PrototypeHelper(SpringCommonInterface):
         # convert model to nnie
         nnie_cfg = self.config.to_kestrel.get('nnie', None)
         if nnie_cfg is not None:
+            nnie_model = 'nnie_{}_{}.tar'.format(model_name, version)
             nnie_cfg_path = generate_nnie_config(nnie_cfg, self.config)
             nnie_cmd = 'python -m spring.nart.switch -c {} -t nnie {} {}'.format(
                 nnie_cfg_path, prototxt, caffemodel)
@@ -770,10 +771,10 @@ class PrototypeHelper(SpringCommonInterface):
                 with open("parameters.json", "w") as f:
                     json.dump(params, f, indent=2)
                 tar_cmd = 'tar cvf {} engine.bin engine.bin.json meta.json meta.conf \
-                    parameters.json category_param.json'.format(model_name + "_nnie.tar")
+                    parameters.json category_param.json'.format(nnie_model)
                 os.system(tar_cmd)
-                self.logger.info(f"generate {model_name + '_nnie.tar'} done!")
-
+                self.logger.info(f"generate {nnie_model} done!")
+            shutil.move(nnie_model, save_to)
             link.synchronize()
             self.logger.info('To NNIE Done!')
 
