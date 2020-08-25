@@ -813,6 +813,8 @@ class PrototypeHelper(SpringCommonInterface):
         link.barrier()
         if self.dist.rank == 0:
             infer_res_file = self.data_loaders['inference'].dataset.inference(res_file)
+        else:
+            infer_res_file = None
         link.barrier()
         # broadcast file to other process
         infer_res_file = broadcast_object(infer_res_file)
