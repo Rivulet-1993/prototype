@@ -49,6 +49,10 @@ from .ghostnet import ghostnet  # noqa: F401
 from .resnest import resnest50, resnest101, resnest200, resnest269  # noqa: F401
 from .ibnnet import resnet50_ibn_a, resnet101_ibn_a, resnet152_ibn_a  # noqa: F401
 from .fbnet_v2 import fbnetv2_f1, fbnetv2_f4, fbnetv2_l2_hs, fbnetv2_l3  # noqa: F401
+from .weightnet_shufflenet_v2 import (  # noqa: F401
+    shufflenet_v2_x0_5_weightnet, shufflenet_v2_x1_0_weightnet,
+    shufflenet_v2_x1_5_weightnet, shufflenet_v2_x2_0_weightnet
+)
 
 
 def model_entry(config):
