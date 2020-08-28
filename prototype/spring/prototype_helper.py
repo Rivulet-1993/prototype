@@ -460,7 +460,7 @@ class PrototypeHelper(SpringCommonInterface):
         for i in range(self.total_step):
             batch = self.get_batch()
             loss = self.forward(batch)
-            self.backward(loss)
+            self.backward(loss / self.dist.world_size)
             self.update()
 
             # measure elapsed time
