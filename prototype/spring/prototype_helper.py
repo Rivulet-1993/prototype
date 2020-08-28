@@ -386,7 +386,6 @@ class PrototypeHelper(SpringCommonInterface):
         Returns:
             loss (torch.cuda.Tensor): loss tensor in GPU, the loss of the given batch and current model.
         '''
-        assert self.model.training
         # measure data loading time
         self.meters.data_time.update(time.time() - self.end_time)
         input, target = batch[0], batch[1]
