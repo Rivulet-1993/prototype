@@ -1,6 +1,6 @@
 from torch.utils.data import DataLoader
 
-from .datasets import CustomDataset
+from .datasets import CustomDataset, MultiClassDataset
 from .transforms import build_transformer
 from .sampler import build_sampler
 from .metrics import build_evaluator
@@ -22,8 +22,15 @@ def build_custom_dataloader(data_type, cfg_dataset):
     if data_type == 'test' and cfg_dataset[data_type].get('evaluator', None):
         evaluator = build_evaluator(cfg_dataset[data_type]['evaluator'])
     # build dataset
+    if cfg_dataset['type'] == 'custom':
+        CurrDataset = CustomDataset
+    elif cfg_dataset['type'] == 'multiclass':
+        CurrDataset = MultiClassDataset
+    else:
+        raise NotImplementedError
+
     if cfg_dataset['read_from'] == 'osg':
-        dataset = CustomDataset(
+        dataset = CurrDataset(
             root_dir='',
             meta_file=cfg_dataset[data_type]['meta_file'],
             transform=transformer,
@@ -33,7 +40,7 @@ def build_custom_dataloader(data_type, cfg_dataset):
             osg_server=cfg_dataset[data_type]['osg_server'],
         )
     else:
-        dataset = CustomDataset(
+        dataset = CurrDataset(
             root_dir=cfg_dataset[data_type]['root_dir'],
             meta_file=cfg_dataset[data_type]['meta_file'],
             transform=transformer,
