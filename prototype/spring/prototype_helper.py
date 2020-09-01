@@ -198,24 +198,28 @@ class PrototypeHelper(SpringCommonInterface):
             self.ema = None
 
     def _build_lr_scheduler(self):
+        if not getattr(self.config.lr_scheduler.kwargs, 'max_iter', False):
+            self.config.lr_scheduler.kwargs.max_iter = self.config.data.max_iter
         self.config.lr_scheduler.kwargs.optimizer = self.optimizer.optimizer if isinstance(self.optimizer, FP16SGD) or \
             isinstance(self.optimizer, FP16RMSprop) else self.optimizer
         self.config.lr_scheduler.kwargs.last_iter = self.state['last_iter']
         self.lr_scheduler = scheduler_entry(self.config.lr_scheduler)
 
     def _build_data(self):
-        self.config.data.max_iter = self.config.lr_scheduler.kwargs.max_iter
         self.config.data.last_iter = self.state['last_iter']
+        if getattr(self.config.lr_scheduler.kwargs, 'max_iter', False):
+            self.config.data.max_iter = self.config.lr_scheduler.kwargs.max_iter
+        else:
+            self.config.data.max_epoch = self.config.lr_scheduler.kwargs.max_epoch
+
         self.data_loaders = {}
-        for data_type in self.config.data.keys():
-            if data_type in ['train', 'test', 'val', 'arch']:
+        key_list = list(self.config.data.keys())
+        for data_type in key_list:
+            if data_type in ['train', 'test', 'val', 'arch', 'inference']:
                 if self.config.data.type == 'imagenet':
                     # imagenet type
                     if data_type == 'train':
-                        if self.config.data.last_iter < self.config.data.max_iter:
-                            loader = build_imagenet_train_dataloader(self.config.data)
-                        else:
-                            loader = {'loader': None}
+                        loader = build_imagenet_train_dataloader(self.config.data)
                     elif data_type == 'test':
                         loader = build_imagenet_test_dataloader(self.config.data)
                     else:
@@ -386,7 +390,6 @@ class PrototypeHelper(SpringCommonInterface):
         Returns:
             loss (torch.cuda.Tensor): loss tensor in GPU, the loss of the given batch and current model.
         '''
-        assert self.model.training
         # measure data loading time
         self.meters.data_time.update(time.time() - self.end_time)
         input, target = batch[0], batch[1]
@@ -461,7 +464,7 @@ class PrototypeHelper(SpringCommonInterface):
         for i in range(self.total_step):
             batch = self.get_batch()
             loss = self.forward(batch)
-            self.backward(loss)
+            self.backward(loss / self.dist.world_size)
             self.update()
 
             # measure elapsed time
@@ -755,13 +758,69 @@ class PrototypeHelper(SpringCommonInterface):
         # convert model to nnie
         nnie_cfg = self.config.to_kestrel.get('nnie', None)
         if nnie_cfg is not None:
+            nnie_model = 'nnie_{}_{}.tar'.format(model_name, version)
             nnie_cfg_path = generate_nnie_config(nnie_cfg, self.config)
             nnie_cmd = 'python -m spring.nart.switch -c {} -t nnie {} {}'.format(
                 nnie_cfg_path, prototxt, caffemodel)
             self.logger.info('Converting Model to NNIE...')
             if self.dist.rank == 0:
                 os.system(nnie_cmd)
+                # refactor json
+                assert os.path.exists("parameters.json")
+                with open("parameters.json", "r") as f:
+                    params = json.load(f)
+                params["model_files"]["net"]["net"] = "engine.bin"
+                params["model_files"]["net"]["backend"] = "kestrel_nart"
+                with open("parameters.json", "w") as f:
+                    json.dump(params, f, indent=2)
+                tar_cmd = 'tar cvf {} engine.bin engine.bin.json meta.json meta.conf \
+                    parameters.json category_param.json'.format(nnie_model)
+                os.system(tar_cmd)
+                self.logger.info(f"generate {nnie_model} done!")
+            shutil.move(nnie_model, save_to)
             link.synchronize()
             self.logger.info('To NNIE Done!')
 
         return save_to
+
+    # sci
+    @torch.no_grad()
+    def inference(self):
+        '''
+        Inference the inference dataset and save the raw results (not the evaluation value) in the result file.
+        The inference dataset and correspoding config should be set at the config file.
+        The result file should be in json format.
+
+        Returns:
+            str: The absolute path to the saved results file.
+        '''
+        assert 'inference' in self.data_loaders.keys()
+        self.model.eval()
+        res_file = os.path.join(self.path.result_path, f'infer_results.txt.rank{self.dist.rank}')
+        writer = open(res_file, 'w')
+        for batch_idx, batch in enumerate(self.data_loaders['inference']):
+            input = batch['image']
+            input = input.cuda().half() if self.fp16 else input.cuda()
+            # compute output
+            logits = self.model(input)
+            scores = F.softmax(logits, dim=1)
+            # compute prediction
+            _, preds = logits.data.topk(k=1, dim=1)
+            preds = preds.view(-1)
+            # update batch information
+            batch.update({'prediction': preds})
+            batch.update({'score': scores})
+            # save prediction information
+            self.data_loaders['inference'].dataset.dump(writer, batch)
+
+        writer.close()
+        link.barrier()
+        if self.dist.rank == 0:
+            infer_res_file = self.data_loaders['inference'].dataset.inference(res_file)
+        else:
+            infer_res_file = None
+        link.barrier()
+        # broadcast file to other process
+        infer_res_file = broadcast_object(infer_res_file)
+        self.model.train()
+        return infer_res_file

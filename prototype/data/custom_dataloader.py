@@ -1,6 +1,6 @@
 from torch.utils.data import DataLoader
 
-from .datasets import CustomDataset
+from .datasets import CustomDataset, MultiClassDataset
 from .transforms import build_transformer
 from .sampler import build_sampler
 from .metrics import build_evaluator
@@ -22,8 +22,15 @@ def build_custom_dataloader(data_type, cfg_dataset):
     if data_type == 'test' and cfg_dataset[data_type].get('evaluator', None):
         evaluator = build_evaluator(cfg_dataset[data_type]['evaluator'])
     # build dataset
+    if cfg_dataset['type'] == 'custom':
+        CurrDataset = CustomDataset
+    elif cfg_dataset['type'] == 'multiclass':
+        CurrDataset = MultiClassDataset
+    else:
+        raise NotImplementedError
+
     if cfg_dataset['read_from'] == 'osg':
-        dataset = CustomDataset(
+        dataset = CurrDataset(
             root_dir='',
             meta_file=cfg_dataset[data_type]['meta_file'],
             transform=transformer,
@@ -33,7 +40,7 @@ def build_custom_dataloader(data_type, cfg_dataset):
             osg_server=cfg_dataset[data_type]['osg_server'],
         )
     else:
-        dataset = CustomDataset(
+        dataset = CurrDataset(
             root_dir=cfg_dataset[data_type]['root_dir'],
             meta_file=cfg_dataset[data_type]['meta_file'],
             transform=transformer,
@@ -43,18 +50,11 @@ def build_custom_dataloader(data_type, cfg_dataset):
         )
     # initialize kwargs of sampler
     cfg_dataset[data_type]['sampler']['kwargs'] = {}
-    if cfg_dataset[data_type]['sampler']['type'] == 'distributed':
-        sampler_kwargs = {'dataset': dataset}
-    else:
-        sampler_kwargs = {
-            'dataset': dataset,
-            'batch_size': cfg_dataset['batch_size'],
-            'total_iter': cfg_dataset['max_iter'],
-            'last_iter': cfg_dataset['last_iter']
-        }
-    cfg_dataset[data_type]['sampler']['kwargs'].update(sampler_kwargs)
+    cfg_dataset['dataset'] = dataset
     # build sampler
-    sampler = build_sampler(cfg_dataset[data_type]['sampler'])
+    sampler = build_sampler(cfg_dataset[data_type]['sampler'], cfg_dataset)
+    if data_type == 'train' and cfg_dataset['last_iter'] >= cfg_dataset['max_iter']:
+        return {'loader': None}
     # build dataloader
     loader = DataLoader(dataset=dataset,
                         batch_size=cfg_dataset['batch_size'],

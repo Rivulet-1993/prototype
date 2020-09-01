@@ -59,11 +59,23 @@ class KestrelSolver(ClsSolver):
                             input_names=['data'],
                             output_names=['out'])
 
-    def to_nnie(self, nnie_cfg, config, prototxt, caffemodel):
+    def to_nnie(self, nnie_cfg, config, prototxt, caffemodel, model_name):
         nnie_cfg_path = generate_nnie_config(nnie_cfg, config)
         nnie_cmd = 'python -m spring.nart.switch -c {} -t nnie {} {}'.format(
             nnie_cfg_path, prototxt, caffemodel)
+
         os.system(nnie_cmd)
+        assert os.path.exists("parameters.json")
+        with open("parameters.json", "r") as f:
+            params = json.load(f)
+        params["model_files"]["net"]["net"] = "engine.bin"
+        params["model_files"]["net"]["backend"] = "kestrel_nart"
+        with open("parameters.json", "w") as f:
+            json.dump(params, f, indent=2)
+        tar_cmd = 'tar cvf {} engine.bin engine.bin.json meta.json meta.conf parameters.json category_param.json'.\
+            format(model_name + "_nnie.tar")
+        os.system(tar_cmd)
+        self.logger.info(f"generate {model_name + '_nnie.tar'} done!")
 
     def refactor_config(self):
         '''Prepare configuration for kestrel classifier model. For details:
@@ -137,7 +149,7 @@ class KestrelSolver(ClsSolver):
         if nnie_cfg is not None:
             self.logger.info('Converting Model to NNIE...')
             if self.dist.rank == 0:
-                self.to_nnie(nnie_cfg, self.config, prototxt, caffemodel)
+                self.to_nnie(nnie_cfg, self.config, prototxt, caffemodel, model_name)
             link.synchronize()
             self.logger.info('To NNIE Done!')
 

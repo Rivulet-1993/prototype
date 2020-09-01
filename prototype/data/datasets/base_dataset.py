@@ -1,10 +1,12 @@
-import mc
 import os
 import linklink as link
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-
+try:
+    import mc
+except ImportError:
+    pass
 # import ceph
 # from petrel_client.client import Client
 
@@ -124,6 +126,15 @@ class BaseDataset(Dataset):
                     merged_fd.write(line)
         merged_fd.close()
         return merged_file
+
+    def inference(self, res_file):
+        """
+        Arguments:
+            - res_file (:obj:`str`): filename of result
+        """
+        prefix = res_file.rstrip('0123456789')
+        merged_res_file = self.merge(prefix)
+        return merged_res_file
 
     def evaluate(self, res_file):
         """

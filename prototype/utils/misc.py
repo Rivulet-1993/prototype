@@ -173,6 +173,7 @@ def count_params(model):
 def count_flops(model, input_shape):
     try:
         from prototype.model.layer import CondConv2d
+        from prototype.model.layer import WeightNet, WeightNet_DW
     except NotImplementedError:
         print('Check whether the file exists!')
 
@@ -218,6 +219,19 @@ def count_flops(model, input_shape):
 
         return condconv2d_hook
 
+    def make_weightnet_hook(name):
+        def weightnet_hook(m, input):
+            n, _, h, w = input[0].size(0), input[0].size(
+                1), input[0].size(2), input[0].size(3)
+            oc = m.oup if hasattr(m, 'oup') else m.inp
+            group = 1 if hasattr(m, 'oup') else m.inp
+            # flops of group convolution: one group for each sample
+            # input: n*c*h*w
+            # weight: (n*oc)*c*kh*kw
+            flops_dict[name] = n * h * w * oc * m.inp * m.ksize * m.ksize / m.stride / m.stride / group
+
+        return weightnet_hook
+
     hooks = []
     for name, m in model.named_modules():
         if isinstance(m, torch.nn.Conv2d):
@@ -225,6 +239,9 @@ def count_flops(model, input_shape):
             hooks.append(h)
         elif isinstance(m, CondConv2d):
             h = m.register_forward_pre_hook(make_condconv2d_hook(name))
+            hooks.append(h)
+        elif isinstance(m, WeightNet) or isinstance(m, WeightNet_DW):
+            h = m.register_forward_pre_hook(make_weightnet_hook(name))
             hooks.append(h)
 
     input = torch.zeros(*input_shape).cuda()

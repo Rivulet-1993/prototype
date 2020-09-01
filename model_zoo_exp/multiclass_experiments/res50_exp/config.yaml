@@ -1,0 +1,147 @@
+model:                    # architecture details
+    type: resnet50        # model name
+    kwargs:
+        num_classes: 6    # number of classes
+        bn:
+            use_sync_bn: False  # whether to use syncbn
+            kwargs: {}          # kwargs of bn
+    feature_dims: [2, 2, 2]
+
+dist:                     # distributed communication
+    sync: False           # if 'True', synchronize gradients after forward 
+                          # if 'False', synchronize gradient during forward
+
+optimizer:                # optimizer details
+    type: SGD
+    kwargs:
+        nesterov: True
+        momentum: 0.9
+        weight_decay: 0.0001
+
+lr_scheduler:             # learning rate scheduler details
+    type: Step
+    kwargs:
+        lr_steps: [3750, 75000, 11250]
+        lr_mults: [0.1, 0.1, 0.1]
+
+        base_lr: 0.1        # initial leaning rate 
+        warmup_lr: 0.4      # learning rate after warming up
+        warmup_steps: 250  # iterations of warmup
+        max_iter: 12500    # total iterations of training
+
+# label_smooth: 0.1       # label smooth ratio
+# mixup: 0.2              # mixup ratio
+# cutmix: 1.0             # cutmix ratio
+ema:                      # exponential moving average details
+    enable: False
+    kwargs:
+        decay: 0.999
+
+lms:                      # large model support: utilize cpu to save gpu memory
+    enable: False         # whether to use lms
+    kwargs:
+        limit: 12         # the soft limit in G-bytes on GPU memory allocated for tensors
+
+data:                     # data details
+    type: multiclass      # choices = {'imagenet', 'custom', 'multiclass'}
+    read_from: mc         # choices = {'mc', 'fs', 'fake', 'osg'}
+    use_dali: False       # whether to use NVIDIA dali dataloader
+    batch_size: 32        # batch size in one GPU
+    num_workers: 4        # number of subprocesses for data loading
+    pin_memory: True      # whether to copy Tensors into CUDA pinned memory
+    input_size: 224       # training image size
+    test_resize: 256      # testing resize image size
+
+    train:                            # training data details
+        root_dir: /mnt/lustrenew/yuankun/rail-prototype/sample/
+        meta_file: /mnt/lustrenew/yuankun/rail-prototype/sample/sample.json
+        image_reader:                 # image decoding type
+            type: pil
+        sampler:                      # sampler details
+            type: distributed_iteration  # distributed iteration-based sampler
+        transforms:                   # torchvision transforms, flexible
+            - type: random_resized_crop
+              kwargs:
+                  size: 224
+            - type: random_horizontal_flip
+            - type: color_jitter
+              kwargs:
+                  brightness: 0.2
+                  contrast: 0.2
+                  saturation: 0.2
+                  hue: 0.1
+            - type: to_tensor
+            - type: normalize
+              kwargs:
+                  mean: [0.485, 0.456, 0.406]
+                  std: [0.229, 0.224, 0.225]
+
+    test:                             # testing data details
+        root_dir: /mnt/lustrenew/yuankun/rail-prototype/sample/
+        meta_file: /mnt/lustrenew/yuankun/rail-prototype/sample/sample.json
+        image_reader:
+            type: pil
+            # type: kestrel             # decoding use kestrel type, the same with kestrel SDK
+            # ues_gpu: False            # if kestrel_caffe, True; if kestrel_ppl/nnie, False; if True, num_workers should be 0
+        sampler:                      # sampler details
+            type: distributed         # non-repeated sampling
+        transforms:                   # torchvision transforms, flexible
+            - type: resize
+              kwargs:
+                  size: [256, 256]
+            - type: center_crop
+              kwargs:
+                  size: [224, 224]
+            - type: to_tensor
+            - type: normalize
+              kwargs:
+                  mean: [0.485, 0.456, 0.406]
+                  std: [0.229, 0.224, 0.225]
+                #   mean: [124.16, 116.736, 103.936]
+                #   std: [58.624, 57.344, 57.6]
+
+        evaluator:
+            type: multiclass
+            kwargs:
+                topk: [1,]
+
+saver:                                # saving or loading details
+    print_freq: 10                    # frequence of printing logger
+    val_freq: 100                     # frequence of evaluating during training
+    save_many: False                  # whether to save checkpoints after every evaluation
+    pretrain:                       # pretrain model details
+        path: /mnt/lustre/share/prototype_model_zoo/resnet50_batch1k_epoch100_nesterov_wd0.0001/checkpoints/ckpt.pth.tar
+        ignore:                     # ignore keys in checkpoints
+            key:                    # if training from scratch, pop 'optimzier' and 'last_iter'
+                - optimizer         # if resuming from ckpt, DO NOT pop them
+                - last_iter
+            model:                  # ignore modules in model
+                - module.fc.weight  # if training with different number of classes, pop the keys 
+                - module.fc.bias    # of last fully-connected layers
+
+to_kestrel:
+    model_name: KM_Classifier_Project_Test
+    version: '1.0.0'
+    add_softmax: True
+    pixel_means: [123.675, 116.28, 103.53]
+    pixel_stds: [58.395, 57.12, 57.375]
+    is_rgb: True
+    save_all_label: True
+    type: 'UNKNOWN'
+    class_label:
+        hat:
+            calculator: 'bypass'
+            start: 0
+            end: 1
+            labels: ['without', 'with']
+        jacket:
+            calculator: 'bypass'
+            start: 0
+            end: 1
+            labels: ['without', 'with']
+        glass:
+            calculator: 'bypass'
+            start: 0
+            end: 1
+            labels: ['without', 'with']
+
