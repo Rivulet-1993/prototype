@@ -170,5 +170,28 @@ sampler_dict = {
 }
 
 
-def build_sampler(cfg):
-    return sampler_dict[cfg['type']](**cfg['kwargs'])
+def build_sampler(cfg_sampler, cfg_dataset):
+    batch_size = cfg_dataset['batch_size']
+    dataset = cfg_dataset['dataset']
+    # check step type: iteration or epoch ?
+    if not getattr(cfg_dataset, 'max_iter', False):
+        world_size = link.get_world_size()
+        iter_per_epoch = (len(dataset) - 1) // (batch_size * world_size) + 1
+        total_iter = cfg_dataset['max_epoch'] * iter_per_epoch
+    else:
+        total_iter = cfg_dataset['max_iter']
+    # initialize sampler kwargs
+    if cfg_sampler['type'] == 'distributed':
+        sampler_kwargs = {'dataset': dataset}
+    else:
+        sampler_kwargs = {
+            'dataset': dataset,
+            'batch_size': batch_size,
+            'total_iter': total_iter,
+            'last_iter': cfg_dataset['last_iter']
+        }
+    cfg_sampler['kwargs'].update(sampler_kwargs)
+    cfg_dataset['max_iter'] = total_iter
+    cfg_dataset.pop('dataset')
+
+    return sampler_dict[cfg_sampler['type']](**cfg_sampler['kwargs'])

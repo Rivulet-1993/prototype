@@ -198,24 +198,28 @@ class PrototypeHelper(SpringCommonInterface):
             self.ema = None
 
     def _build_lr_scheduler(self):
+        if not getattr(self.config.lr_scheduler.kwargs, 'max_iter', False):
+            self.config.lr_scheduler.kwargs.max_iter = self.config.data.max_iter
         self.config.lr_scheduler.kwargs.optimizer = self.optimizer.optimizer if isinstance(self.optimizer, FP16SGD) or \
             isinstance(self.optimizer, FP16RMSprop) else self.optimizer
         self.config.lr_scheduler.kwargs.last_iter = self.state['last_iter']
         self.lr_scheduler = scheduler_entry(self.config.lr_scheduler)
 
     def _build_data(self):
-        self.config.data.max_iter = self.config.lr_scheduler.kwargs.max_iter
         self.config.data.last_iter = self.state['last_iter']
+        if getattr(self.config.lr_scheduler.kwargs, 'max_iter', False):
+            self.config.data.max_iter = self.config.lr_scheduler.kwargs.max_iter
+        else:
+            self.config.data.max_epoch = self.config.lr_scheduler.kwargs.max_epoch
+
         self.data_loaders = {}
-        for data_type in self.config.data.keys():
+        key_list = list(self.config.data.keys())
+        for data_type in key_list:
             if data_type in ['train', 'test', 'val', 'arch', 'inference']:
                 if self.config.data.type == 'imagenet':
                     # imagenet type
                     if data_type == 'train':
-                        if self.config.data.last_iter < self.config.data.max_iter:
-                            loader = build_imagenet_train_dataloader(self.config.data)
-                        else:
-                            loader = {'loader': None}
+                        loader = build_imagenet_train_dataloader(self.config.data)
                     elif data_type == 'test':
                         loader = build_imagenet_test_dataloader(self.config.data)
                     else:
