@@ -34,8 +34,8 @@ class ClsSolver(BaseSolver):
         self.setup_env()
         self.build_model()
         self.build_optimizer()
-        self.build_lr_scheduler()
         self.build_data()
+        self.build_lr_scheduler()
         send_info(self.prototype_info)
 
     def setup_env(self):
@@ -157,20 +157,24 @@ class ClsSolver(BaseSolver):
 
     def build_lr_scheduler(self):
         self.prototype_info.lr_scheduler = self.config.lr_scheduler.type
+        if not getattr(self.config.lr_scheduler.kwargs, 'max_iter', False):
+            self.config.lr_scheduler.kwargs.max_iter = self.config.data.max_iter
         self.config.lr_scheduler.kwargs.optimizer = self.optimizer.optimizer if isinstance(self.optimizer, FP16SGD) or \
             isinstance(self.optimizer, FP16RMSprop) else self.optimizer
         self.config.lr_scheduler.kwargs.last_iter = self.state['last_iter']
         self.lr_scheduler = scheduler_entry(self.config.lr_scheduler)
 
     def build_data(self):
-        self.config.data.max_iter = self.config.lr_scheduler.kwargs.max_iter
         self.config.data.last_iter = self.state['last_iter']
+        if getattr(self.config.lr_scheduler.kwargs, 'max_iter', False):
+            self.config.data.max_iter = self.config.lr_scheduler.kwargs.max_iter
+        else:
+            self.config.data.max_epoch = self.config.lr_scheduler.kwargs.max_epoch
 
-        if self.config.data.last_iter < self.config.data.max_iter:
-            if self.config.data.get('type', 'imagenet') == 'imagenet':
-                self.train_data = build_imagenet_train_dataloader(self.config.data)
-            else:
-                self.train_data = build_custom_dataloader('train', self.config.data)
+        if self.config.data.get('type', 'imagenet') == 'imagenet':
+            self.train_data = build_imagenet_train_dataloader(self.config.data)
+        else:
+            self.train_data = build_custom_dataloader('train', self.config.data)
 
         if self.config.data.get('type', 'imagenet') == 'imagenet':
             self.val_data = build_imagenet_test_dataloader(self.config.data)

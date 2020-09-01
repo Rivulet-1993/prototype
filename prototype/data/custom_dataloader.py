@@ -43,18 +43,11 @@ def build_custom_dataloader(data_type, cfg_dataset):
         )
     # initialize kwargs of sampler
     cfg_dataset[data_type]['sampler']['kwargs'] = {}
-    if cfg_dataset[data_type]['sampler']['type'] == 'distributed':
-        sampler_kwargs = {'dataset': dataset}
-    else:
-        sampler_kwargs = {
-            'dataset': dataset,
-            'batch_size': cfg_dataset['batch_size'],
-            'total_iter': cfg_dataset['max_iter'],
-            'last_iter': cfg_dataset['last_iter']
-        }
-    cfg_dataset[data_type]['sampler']['kwargs'].update(sampler_kwargs)
+    cfg_dataset['dataset'] = dataset
     # build sampler
-    sampler = build_sampler(cfg_dataset[data_type]['sampler'])
+    sampler = build_sampler(cfg_dataset[data_type]['sampler'], cfg_dataset)
+    if data_type == 'train' and cfg_dataset['last_iter'] >= cfg_dataset['max_iter']:
+        return {'loader': None}
     # build dataloader
     loader = DataLoader(dataset=dataset,
                         batch_size=cfg_dataset['batch_size'],

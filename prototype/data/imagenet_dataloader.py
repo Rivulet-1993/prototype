@@ -104,17 +104,10 @@ def build_imagenet_train_dataloader(cfg_dataset, data_type='train'):
         )
     # build sampler
     cfg_train['sampler']['kwargs'] = {}
-    if cfg_train['sampler']['type'] == 'distributed':
-        sampler_kwargs = {'dataset': dataset}
-    else:
-        sampler_kwargs = {
-            'dataset': dataset,
-            'batch_size': cfg_dataset['batch_size'],
-            'total_iter': cfg_dataset['max_iter'],
-            'last_iter': cfg_dataset['last_iter']
-        }
-    cfg_train['sampler']['kwargs'].update(sampler_kwargs)
-    sampler = build_sampler(cfg_train['sampler'])
+    cfg_dataset['dataset'] = dataset
+    sampler = build_sampler(cfg_train['sampler'], cfg_dataset)
+    if cfg_dataset['last_iter'] >= cfg_dataset['max_iter']:
+        return {'loader': None}
     # build dataloader
     if cfg_dataset['use_dali']:
         # NVIDIA dali pipeline
@@ -182,7 +175,8 @@ def build_imagenet_test_dataloader(cfg_dataset, data_type='test'):
     # build sampler
     assert cfg_test['sampler'].get('type', 'distributed') == 'distributed'
     cfg_test['sampler']['kwargs'] = {'dataset': dataset, 'round_up': False}
-    sampler = build_sampler(cfg_test['sampler'])
+    cfg_dataset['dataset'] = dataset
+    sampler = build_sampler(cfg_test['sampler'], cfg_dataset)
     # build dataloader
     if cfg_dataset['use_dali']:
         # NVIDIA dali pipeline
@@ -244,13 +238,11 @@ def build_imagenet_search_dataloader(cfg_dataset, data_type='arch'):
         )
     # build sampler
     assert cfg_search['sampler'].get('type', 'distributed_iteration') == 'distributed_iteration'
-    cfg_search['sampler']['kwargs'] = {
-        'dataset': dataset,
-        'batch_size': cfg_dataset['batch_size'],
-        'total_iter': cfg_dataset['max_iter'],
-        'last_iter': cfg_dataset['last_iter'],
-    }
-    sampler = build_sampler(cfg_search['sampler'])
+    cfg_search['sampler']['kwargs'] = {}
+    cfg_dataset['dataset'] = dataset
+    sampler = build_sampler(cfg_search['sampler'], cfg_dataset)
+    if cfg_dataset['last_iter'] >= cfg_dataset['max_iter']:
+        return {'loader': None}
     # build dataloder
     if cfg_dataset['use_dali']:
         # NVIDIA dali pipeline
