@@ -294,13 +294,20 @@ class RegNet(AnyNet):
     `"Designing Network Design Spaces" <https://arxiv.org/abs/2003.13678>`_
     """
 
-    def __init__(self, cfg, bn=None):
+    def __init__(self,
+                 cfg,
+                 num_classes=1000,
+                 scale=1.0,
+                 bn=None):
         # Generate RegNet ws per block
         b_ws, num_s, _, _ = generate_regnet(
             cfg['WA'], cfg['W0'], cfg['WM'], cfg['DEPTH']
         )
         # Convert to per stage format
+        # ws: channel list for stages, ds: number of blocks list
         ws, ds = get_stages_from_blocks(b_ws, b_ws)
+        # scale-up/down channels
+        ws = [int(_w * scale) for _w in ws]
         # Generate group widths and bot muls
         gws = [cfg['GROUP_W'] for _ in range(num_s)]
         bms = [1 for _ in range(num_s)]
@@ -311,7 +318,7 @@ class RegNet(AnyNet):
         # Use SE for RegNetY
         se_r = 0.25 if cfg['SE_ON'] else None
         # Construct the model
-        STEM_W = 32
+        STEM_W = int(32 * scale)
 
         global BN
 
@@ -325,7 +332,7 @@ class RegNet(AnyNet):
             "bms": bms,
             "gws": gws,
             "se_r": se_r,
-            "nc": 1000,
+            "nc": num_classes,
         }
         super(RegNet, self).__init__(**kwargs)
 
