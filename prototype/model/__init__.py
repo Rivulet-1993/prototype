@@ -53,6 +53,20 @@ from .weightnet_shufflenet_v2 import (  # noqa: F401
     shufflenet_v2_x0_5_weightnet, shufflenet_v2_x1_0_weightnet,
     shufflenet_v2_x1_5_weightnet, shufflenet_v2_x2_0_weightnet
 )
+from .mobilenext import mobilenext  # noqa: F401
+from .dmcp_resnet import (  # noqa: F401
+    dmcp_resnet18_45M, dmcp_resnet18_47M, dmcp_resnet18_51M, dmcp_resnet18_480M, dmcp_resnet50_282M,
+    dmcp_resnet50_1100M, dmcp_resnet50_2200M
+)
+from .bignas_resnet_basicblock import (  # noqa: F401
+    bignas_resnet18_9M, bignas_resnet18_37M, bignas_resnet18_50M,
+    bignas_resnet18_49M, bignas_resnet18_66M, bignas_resnet18_1555M,
+    bignas_resnet18_107M, bignas_resnet18_125M, bignas_resnet18_150M,
+    bignas_resnet18_312M, bignas_resnet18_403M, bignas_resnet18_492M
+)
+from .bignas_resnet_bottleneck import (  # noqa: F401
+    bignas_resnet50_2954M, bignas_resnet50_3145M, bignas_resnet50_3811M
+)
 
 
 def model_entry(config):

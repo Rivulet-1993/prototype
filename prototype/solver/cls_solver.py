@@ -303,13 +303,15 @@ class ClsSolver(BaseSolver):
                     ema_metrics = self.evaluate()
                     self.ema.recover(self.model)
                     if self.dist.rank == 0 and self.config.data.test.evaluator.type == 'imagenet':
+                        metric_key = 'top{}'.format(self.topk)
                         self.tb_logger.add_scalars('acc1_val', {'ema': ema_metrics.metric['top1']}, curr_step)
-                        self.tb_logger.add_scalars('acc5_val', {'ema': ema_metrics.metric['top5']}, curr_step)
+                        self.tb_logger.add_scalars('acc5_val', {'ema': ema_metrics.metric[metric_key]}, curr_step)
 
                 # testing logger
                 if self.dist.rank == 0 and self.config.data.test.evaluator.type == 'imagenet':
+                    metric_key = 'top{}'.format(self.topk)
                     self.tb_logger.add_scalar('acc1_val', metrics.metric['top1'], curr_step)
-                    self.tb_logger.add_scalar('acc5_val', metrics.metric['top5'], curr_step)
+                    self.tb_logger.add_scalar('acc5_val', metrics.metric[metric_key], curr_step)
 
                 # save ckpt
                 if self.dist.rank == 0:

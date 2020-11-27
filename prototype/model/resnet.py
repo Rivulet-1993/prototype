@@ -103,7 +103,8 @@ class ResNet(nn.Module):
                  avg_down=False,
                  bypass_last_bn=False,
                  bn=None,
-                 nnie_type=False):
+                 nnie_type=False,
+                 scale=1.0):
         r"""
         Arguments:
 
@@ -124,36 +125,37 @@ class ResNet(nn.Module):
         BN = get_bn(bn)
         bypass_bn_weight_list = []
 
-        self.inplanes = inplanes
+        self.inplanes = int(inplanes * scale)
         self.deep_stem = deep_stem
         self.avg_down = avg_down
         self.logger = get_logger(__name__)
 
         if self.deep_stem:
             self.conv1 = nn.Sequential(
-                        nn.Conv2d(3, inplanes // 2, kernel_size=3, stride=2, padding=1, bias=False),
-                        BN(inplanes // 2),
+                        nn.Conv2d(3, self.inplanes // 2, kernel_size=3, stride=2, padding=1, bias=False),
+                        BN(self.inplanes // 2),
                         nn.ReLU(inplace=True),
-                        nn.Conv2d(inplanes // 2, inplanes // 2, kernel_size=3, stride=1, padding=1, bias=False),
-                        BN(inplanes // 2),
+                        nn.Conv2d(self.inplanes // 2, self.inplanes // 2, kernel_size=3,
+                                  stride=1, padding=1, bias=False),
+                        BN(self.inplanes // 2),
                         nn.ReLU(inplace=True),
-                        nn.Conv2d(inplanes // 2, inplanes, kernel_size=3, stride=1, padding=1, bias=False),
+                        nn.Conv2d(self.inplanes // 2, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False),
                     )
         else:
-            self.conv1 = nn.Conv2d(3, inplanes, kernel_size=7, stride=2, padding=3, bias=False)
-        self.bn1 = BN(inplanes)
+            self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+        self.bn1 = BN(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         if nnie_type:
             self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0, ceil_mode=True)
         else:
             self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+        self.layer1 = self._make_layer(block, int(64 * scale), layers[0])
+        self.layer2 = self._make_layer(block, int(128 * scale), layers[1], stride=2)
+        self.layer3 = self._make_layer(block, int(256 * scale), layers[2], stride=2)
+        self.layer4 = self._make_layer(block, int(512 * scale), layers[3], stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.fc = nn.Linear(int(512 * scale) * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):

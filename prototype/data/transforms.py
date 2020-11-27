@@ -110,15 +110,18 @@ torch_transforms_info_dict = {
     'compose': transforms.Compose
 }
 
-
 kestrel_transforms_info_dict = {
     'resize': springvision.Resize,
-    'center_corp': springvision.CenterCrop,
+    'random_resized_crop': springvision.RandomResizedCrop,
+    'random_crop': springvision.RandomCrop,
+    'center_crop': springvision.CenterCrop,
+    'color_jitter': springvision.ColorJitter,
     'normalize': springvision.Normalize,
     'to_tensor': springvision.ToTensor,
     'adjust_gamma': springvision.AdjustGamma,
     'to_grayscale': springvision.ToGrayscale,
-    'compose': springvision.Compose
+    'compose': springvision.Compose,
+    'random_horizontal_flip': springvision.RandomHorizontalFlip
 }
 
 
@@ -130,7 +133,8 @@ def build_transformer(cfgs, image_reader={}):
     else:
         transforms_info_dict = kestrel_transforms_info_dict
         if image_reader.get('use_gpu', False):
-            springvision.KestrelDevice.bind('cuda', torch.cuda.current_device())
+            springvision.KestrelDevice.bind('cuda',
+                                            torch.cuda.current_device())
 
     for cfg in cfgs:
         transform_type = transforms_info_dict[cfg['type']]

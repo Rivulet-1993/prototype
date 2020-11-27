@@ -21,6 +21,8 @@ def kestrel_loader(img_bytes, filepath):
     try:
         image_data = img_bytes.tobytes()
         input_frame.create_from_mem(image_data, len(image_data))
+        if input_frame.frame_type != ks.KESTREL_VIDEO_RGB:
+            input_frame = input_frame.cvt_color(ks.KESTREL_VIDEO_RGB)
         if ks.Device().mem_type() == ks.KESTREL_MEM_DEVICE:
             input_frame = input_frame.upload()
     except IOError:

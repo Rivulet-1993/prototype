@@ -8,16 +8,12 @@ stages:
 
 flake8:
     stage: style_check
-    tags:
-        - springce
     script:
         - pip install flake8
         - python -m flake8 --max-line-length=120
 
 test_main:
     stage: test
-    tags:
-        - springce
     script:
         - python main.py
 
@@ -43,8 +39,6 @@ pages:
         - docs
 
 build:
-    tags:
-        - springce
     image: registry.sensetime.com/spring-test/spring-infra/docker
     stage: build
     before_script:
