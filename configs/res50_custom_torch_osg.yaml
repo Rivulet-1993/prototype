@@ -137,8 +137,8 @@ to_kestrel:
     model_name: KM_Classifier_Project_Test
     version: '1.0.0'
     add_softmax: True
-    pixel_means: [124.16, 116.736, 103.936]
-    pixel_stds: [58.624, 57.344, 57.6]
+    pixel_means: [123.675, 116.28, 103.53]
+    pixel_stds: [58.395, 57.12, 57.375]
     is_rgb: True
     save_all_label: True
     type: 'UNKNOWN'
