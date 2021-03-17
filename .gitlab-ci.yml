@@ -1,24 +1,49 @@
-image: "python:3.6"
-
-#before_script:
-#    - pip install flake8
+image: "registry.sensetime.com/spring/dka:dispatcher-linklink-run-v0.3.0-cuda9.0.mvapich2"
 
 stages:
     - style_check
     - test
-    
+    - build
+    - deploy
 
 flake8:
     stage: style_check
-    tags:
-        - docker
     script:
         - pip install flake8
         - python -m flake8 --max-line-length=120
 
 test_main:
     stage: test
-    tags:
-        - docker
     script:
         - python main.py
+
+pages:
+  stage: deploy
+  script:
+        - pip install sphinx==1.5.6
+        - pip install http://10.10.40.93/packages/sphinx_rtd_theme-0.4.3-py2.py3-none-any.whl
+        - pip install sphinxcontrib-versioning
+        - pip install easydict
+        - pip install pyyaml
+        # - export LC_ALL=C.UTF-8
+        # - export LANG=C.UTF-8
+        - sphinx-versioning build docs/source docs/_build/html
+        - mv docs/_build/html public
+        - sshpass -p springpypi ssh -o 'StrictHostKeyChecking no' -p 10000 spring@10.10.40.93 'if [ -d ~/prototype ]; then rm -rf prototype; fi'
+        - sshpass -p springpypi scp -o 'StrictHostKeyChecking no' -P 10000 -r public/ spring@10.10.40.93:~/prototype
+  artifacts:
+    paths:
+        - public
+  only:
+        - master
+        - docs
+
+build:
+    image: registry.sensetime.com/spring-test/spring-infra/docker
+    stage: build
+    before_script:
+        - docker login -u $DOCKER_ROBOT_USERNAME -p $DOCKER_ROBOT_PASSWORD registry.sensetime.com
+    script:
+        - make
+    only:
+        - tags

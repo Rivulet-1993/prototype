@@ -4,3 +4,7 @@ __pycache__
 checkpoints
 events
 log.txt
+**.DS_Store**
+.env
+.idea/
+

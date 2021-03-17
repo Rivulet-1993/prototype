@@ -52,23 +52,29 @@ class _Transition(nn.Sequential):
 
 
 class DenseNet(nn.Module):
-    r"""Densenet-BC model class, based on
+    """Densenet-BC model class, based on
     `"Densely Connected Convolutional Networks" <https://arxiv.org/pdf/1608.06993.pdf>`_
-
-    Args:
-        growth_rate (int) - how many filters to add each layer (`k` in paper)
-        block_config (list of 4 ints) - how many layers in each pooling block
-        num_init_features (int) - the number of filters to learn in the first convolution layer
-        bn_size (int) - multiplicative factor for number of bottle neck layers
-          (i.e. bn_size * k features in the bottleneck layer)
-        drop_rate (float) - dropout rate after each dense layer
-        num_classes (int) - number of classification classes
     """
-
-    def __init__(self, growth_rate=32, block_config=(6, 12, 24, 16),
-                 num_init_features=64, bn_size=4, drop_rate=0, num_classes=1000,
+    def __init__(self,
+                 growth_rate=32,
+                 block_config=(6, 12, 24, 16),
+                 num_init_features=64,
+                 bn_size=4,
+                 drop_rate=0,
+                 num_classes=1000,
                  bn=None):
+        r"""
+        Arguments:
 
+        - growth_rate (:obj:`int`): how many filters to add each layer (`k` in paper)
+        - block_config (:obj:`list` of 4 ints): how many layers in each pooling block
+        - num_init_features (:obj:`int`): the number of filters to learn in the first convolution layer
+        - bn_size (:obj:`int`): multiplicative factor for number of bottle neck layers.
+          (i.e. bn_size * k features in the bottleneck layer)
+        - drop_rate (:obj:`float`): dropout rate after each dense layer
+        - num_classes (:obj:`int`): number of classification classes
+        - bn (:obj:`dict`): definition of batchnorm
+        """
         super(DenseNet, self).__init__()
 
         global BN
@@ -125,24 +131,36 @@ class DenseNet(nn.Module):
 
 
 def densenet121(**kwargs):
+    """
+    Constructs a DenseNet-121 model.
+    """
     model = DenseNet(num_init_features=64, growth_rate=32, block_config=(6, 12, 24, 16),
                      **kwargs)
     return model
 
 
 def densenet169(**kwargs):
+    """
+    Constructs a DenseNet-169 model.
+    """
     model = DenseNet(num_init_features=64, growth_rate=32, block_config=(6, 12, 32, 32),
                      **kwargs)
     return model
 
 
 def densenet201(**kwargs):
+    """
+    Constructs a DenseNet-201 model.
+    """
     model = DenseNet(num_init_features=64, growth_rate=32, block_config=(6, 12, 48, 32),
                      **kwargs)
     return model
 
 
 def densenet161(**kwargs):
+    """
+    Constructs a DenseNet-161 model.
+    """
     model = DenseNet(num_init_features=96, growth_rate=48, block_config=(6, 12, 36, 24),
                      **kwargs)
     return model

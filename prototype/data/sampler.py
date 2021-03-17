@@ -30,17 +30,14 @@ class DistributedSampler(Sampler):
             self.length = self.total_size - (self.world_size-1)*self.num_samples
 
     def __iter__(self):
-        # deterministically shuffle based on epoch
         g = torch.Generator()
         g.manual_seed(self.epoch)
         indices = list(torch.randperm(len(self.dataset), generator=g))
 
-        # add extra samples to make it evenly divisible
         if self.round_up:
             indices += indices[:(self.total_size - len(indices))]
         assert len(indices) == self.total_size
 
-        # subsample
         offset = self.num_samples * self.rank
         indices = indices[offset:offset + self.num_samples]
         if self.round_up or (not self.round_up and self.rank < self.world_size-1):
@@ -82,8 +79,6 @@ class DistributedGivenIterationSampler(Sampler):
             raise RuntimeError("this sampler is not designed to be called more than once!!")
 
     def gen_new_list(self):
-
-        # each process shuffle all list with same seed, and pick one piece according to rank
         np.random.seed(0)
 
         all_size = self.total_size * self.world_size
@@ -145,8 +140,6 @@ class DistributedEpochSampler(Sampler):
         return indices[self.rank*num_single:(self.rank+1)*num_single]
 
     def gen_new_list(self):
-
-        # each process shuffle all list with same seed, and pick one piece according to rank
         np.random.seed(0)
 
         self.all_num = self.total_iter * self.batch_size * self.world_size
@@ -168,3 +161,37 @@ class DistributedEpochSampler(Sampler):
 
     def __len__(self):
         return self.all_size_single
+
+
+sampler_dict = {
+    'distributed': DistributedSampler,
+    'distributed_iteration': DistributedGivenIterationSampler,
+    'distributed_epoch': DistributedEpochSampler,
+}
+
+
+def build_sampler(cfg_sampler, cfg_dataset):
+    batch_size = cfg_dataset['batch_size']
+    dataset = cfg_dataset['dataset']
+    # check step type: iteration or epoch ?
+    if not getattr(cfg_dataset, 'max_iter', False):
+        world_size = link.get_world_size()
+        iter_per_epoch = (len(dataset) - 1) // (batch_size * world_size) + 1
+        total_iter = cfg_dataset['max_epoch'] * iter_per_epoch
+    else:
+        total_iter = cfg_dataset['max_iter']
+    # initialize sampler kwargs
+    if cfg_sampler['type'] == 'distributed':
+        sampler_kwargs = {'dataset': dataset}
+    else:
+        sampler_kwargs = {
+            'dataset': dataset,
+            'batch_size': batch_size,
+            'total_iter': total_iter,
+            'last_iter': cfg_dataset['last_iter']
+        }
+    cfg_sampler['kwargs'].update(sampler_kwargs)
+    cfg_dataset['max_iter'] = total_iter
+    cfg_dataset.pop('dataset')
+
+    return sampler_dict[cfg_sampler['type']](**cfg_sampler['kwargs'])

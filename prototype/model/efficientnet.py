@@ -293,8 +293,14 @@ class MBConvBlock(nn.Module):
 
 
 class EfficientNet(nn.Module):
-    def __init__(self, blocks_args=None, global_params=None,
-                 use_fc_bn=False, fc_bn_init_scale=1.0,
+    """EfficientNet class, based on
+    `"EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks" <https://arxiv.org/abs/1905.11946>`_
+    """
+    def __init__(self,
+                 blocks_args=None,
+                 global_params=None,
+                 use_fc_bn=False,
+                 fc_bn_init_scale=1.0,
                  bn=None):
         super(EfficientNet, self).__init__()
 
@@ -402,6 +408,9 @@ class EfficientNet(nn.Module):
 
 
 def efficientnet_b0(override_params=None, override_block=None, **kwargs):
+    """
+    Constructs a EfficientNet-B0 model.
+    """
     model_name = 'efficientnet_b0'
     blocks_args, global_params = get_model_params(model_name, override_params, override_block)
 
@@ -411,6 +420,9 @@ def efficientnet_b0(override_params=None, override_block=None, **kwargs):
 
 
 def efficientnet_b1(override_params=None, **kwargs):
+    """
+    Constructs a EfficientNet-B1 model.
+    """
     model_name = 'efficientnet_b1'
     blocks_args, global_params = get_model_params(model_name, override_params)
 
@@ -420,6 +432,9 @@ def efficientnet_b1(override_params=None, **kwargs):
 
 
 def efficientnet_b2(override_params=None, **kwargs):
+    """
+    Constructs a EfficientNet-B2 model.
+    """
     model_name = 'efficientnet_b2'
     blocks_args, global_params = get_model_params(model_name, override_params)
 
@@ -429,6 +444,9 @@ def efficientnet_b2(override_params=None, **kwargs):
 
 
 def efficientnet_b3(override_params=None, **kwargs):
+    """
+    Constructs a EfficientNet-B3 model.
+    """
     model_name = 'efficientnet_b3'
     blocks_args, global_params = get_model_params(model_name, override_params)
 
@@ -438,6 +456,9 @@ def efficientnet_b3(override_params=None, **kwargs):
 
 
 def efficientnet_b4(override_params=None, **kwargs):
+    """
+    Constructs a EfficientNet-B4 model.
+    """
     model_name = 'efficientnet_b4'
     blocks_args, global_params = get_model_params(model_name, override_params)
 
@@ -447,6 +468,9 @@ def efficientnet_b4(override_params=None, **kwargs):
 
 
 def efficientnet_b5(override_params=None, **kwargs):
+    """
+    Constructs a EfficientNet-B5 model.
+    """
     model_name = 'efficientnet_b5'
     blocks_args, global_params = get_model_params(model_name, override_params)
 
@@ -456,6 +480,9 @@ def efficientnet_b5(override_params=None, **kwargs):
 
 
 def efficientnet_b6(override_params=None, **kwargs):
+    """
+    Constructs a EfficientNet-B6 model.
+    """
     model_name = 'efficientnet_b6'
     blocks_args, global_params = get_model_params(model_name, override_params)
 
@@ -465,6 +492,9 @@ def efficientnet_b6(override_params=None, **kwargs):
 
 
 def efficientnet_b7(override_params=None, **kwargs):
+    """
+    Constructs a EfficientNet-B7 model.
+    """
     model_name = 'efficientnet_b7'
     blocks_args, global_params = get_model_params(model_name, override_params)
 

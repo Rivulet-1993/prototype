@@ -79,7 +79,16 @@ class InvertedResidual(nn.Module):
 
 
 class ShuffleNetV2(nn.Module):
+    """ShuffleNet model class, based on
+    `"ShuffleNet V2: Practical Guidelines for Efficient CNN Architecture Design" <https://arxiv.org/abs/1807.11164>`_
+    """
     def __init__(self, stages_repeats, stages_out_channels, num_classes=1000, bn=None):
+        r"""
+        - stages_repeats (:obj:`list` of 3 ints): how many layers in each stage
+        - stages_out_channels (:obj:`list` of 5 ints): output channels
+        - num_classes (:obj:`int`): number of classification classes
+        - bn (:obj:`dict`): definition of batchnorm
+        """
         super(ShuffleNetV2, self).__init__()
 
         if len(stages_repeats) != 3:
@@ -122,6 +131,7 @@ class ShuffleNetV2(nn.Module):
             nn.ReLU(inplace=True),
         )
 
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(output_channels, num_classes)
 
         for m in self.modules():
@@ -143,31 +153,47 @@ class ShuffleNetV2(nn.Module):
         x = self.stage3(x)
         x = self.stage4(x)
         x = self.conv5(x)
-        x = x.mean([2, 3])  # globalpool
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
         x = self.fc(x)
         return x
 
 
 def shufflenet_v2_x0_5(**kwargs):
+    """
+    Constructs a ShuffleNet-V2-0.5 model.
+    """
     model = ShuffleNetV2([4, 8, 4], [24, 48, 96, 192, 1024], **kwargs)
     return model
 
 
 def shufflenet_v2_x1_0(**kwargs):
+    """
+    Constructs a ShuffleNet-V2-1.0 model.
+    """
     model = ShuffleNetV2([4, 8, 4], [24, 116, 232, 464, 1024], **kwargs)
     return model
 
 
 def shufflenet_v2_x1_5(**kwargs):
+    """
+    Constructs a ShuffleNet-V2-1.5 model.
+    """
     model = ShuffleNetV2([4, 8, 4], [24, 176, 352, 704, 1024], **kwargs)
     return model
 
 
 def shufflenet_v2_x2_0(**kwargs):
+    """
+    Constructs a ShuffleNet-V2-2.0 model.
+    """
     model = ShuffleNetV2([4, 8, 4], [24, 244, 488, 976, 2048], **kwargs)
     return model
 
 
 def shufflenet_v2_scale(**kwargs):
+    """
+    Constructs a custom ShuffleNet-V2 model.
+    """
     model = ShuffleNetV2(**kwargs)
     return model

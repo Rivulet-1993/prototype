@@ -4,8 +4,14 @@ import torch
 import linklink as link
 from collections import defaultdict
 import numpy as np
+try:
+    from sklearn.metrics import precision_score, recall_score, f1_score
+except ImportError:
+    print('Import metrics failed!')
 
 from .dist import simple_group_split
+import yaml
+from easydict import EasyDict
 
 _logger = None
 _logger_fh = None
@@ -14,6 +20,7 @@ _logger_names = []
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self, length=0):
         self.length = length
         self.reset()
@@ -54,6 +61,14 @@ def makedir(path):
     link.barrier()
 
 
+def parse_config(config_file):
+    with open(config_file) as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+        # config = yaml.safe_load(f)
+    config = EasyDict(config)
+    return config
+
+
 class RankFilter(logging.Filter):
     def filter(self, record):
         return False
@@ -63,7 +78,8 @@ def create_logger(log_file, level=logging.INFO):
     global _logger, _logger_fh
     if _logger is None:
         _logger = logging.getLogger()
-        formatter = logging.Formatter('[%(asctime)s][%(filename)15s][line:%(lineno)4d][%(levelname)8s] %(message)s')
+        formatter = logging.Formatter(
+            '[%(asctime)s][%(filename)15s][line:%(lineno)4d][%(levelname)8s] %(message)s')
         fh = logging.FileHandler(log_file)
         fh.setFormatter(formatter)
         sh = logging.StreamHandler()
@@ -101,11 +117,13 @@ def get_bn(config):
         else:
             world_size, rank = link.get_world_size(), link.get_rank()
             assert world_size % group_size == 0
-            bn_group = simple_group_split(world_size, rank, world_size // group_size)
+            bn_group = simple_group_split(
+                world_size, rank, world_size // group_size)
 
         del config.kwargs['group_size']
         config.kwargs.group = bn_group
-        config.kwargs.var_mode = (link.syncbnVarMode_t.L1 if var_mode == 'L1' else link.syncbnVarMode_t.L2)
+        config.kwargs.var_mode = (
+            link.syncbnVarMode_t.L1 if var_mode == 'L1' else link.syncbnVarMode_t.L2)
 
         def BNFunc(*args, **kwargs):
             return link.nn.SyncBatchNorm2d(*args, **kwargs, **config.kwargs)
@@ -115,6 +133,16 @@ def get_bn(config):
         def BNFunc(*args, **kwargs):
             return torch.nn.BatchNorm2d(*args, **kwargs, **config.kwargs)
         return BNFunc
+
+
+def get_norm_layer(config):
+    if config.type == 'GroupNorm':
+        def NormLayer(num_channels, *args, **kwargs):
+            return torch.nn.GroupNorm(
+                num_channels=num_channels, *args, **kwargs, **config.kwargs)
+    else:
+        assert False
+    return NormLayer
 
 
 def count_params(model):
@@ -143,29 +171,86 @@ def count_params(model):
 
 
 def count_flops(model, input_shape):
+    try:
+        from prototype.model.layer import CondConv2d
+        from prototype.model.layer import WeightNet, WeightNet_DW
+    except NotImplementedError:
+        print('Check whether the file exists!')
+
     logger = get_logger(__name__)
 
     flops_dict = {}
+
     def make_conv2d_hook(name):
 
         def conv2d_hook(m, input):
-            n, _, h, w = input[0].size(0), input[0].size(1), input[0].size(2), input[0].size(3)
+            n, _, h, w = input[0].size(0), input[0].size(
+                1), input[0].size(2), input[0].size(3)
             flops = n * h * w * m.in_channels * m.out_channels * m.kernel_size[0] * m.kernel_size[1] \
                 / m.stride[1] / m.stride[1] / m.groups
             flops_dict[name] = int(flops)
 
         return conv2d_hook
 
+    def make_condconv2d_hook(name):
+
+        def condconv2d_hook(m, input):
+            n, _, h, w = input[0].size(0), input[0].size(
+                1), input[0].size(2), input[0].size(3)
+            k, oc, c, kh, kw = m.weight.size()
+            if m.combine_kernel:
+                # flops of combining kernel
+                flops_ck = n * oc * c * kh * kw * k
+                # flops of group convolution: one group for each sample
+                # input: n*c*h*w
+                # weight: (n*oc)*c*kh*kw
+                # groups: n
+                flops_conv = n * h * w * oc * c * kh * kw / m.stride / m.stride / m.groups
+                flops_dict[name] = int(flops_ck + flops_conv)
+            else:
+                # flops of group convolution: one group for each expert
+                # input: n*(c*k)*h*w
+                # weight: (c*k)*oc*kh*kw
+                # groups: k
+                flops_conv = k * n * h * w * c * oc * kh * kw / m.stride / m.stride / m.groups
+                # flops of combining features
+                flops_cf = n * h * w * oc * k
+                flops_dict[name] = int(flops_conv + flops_cf)
+
+        return condconv2d_hook
+
+    def make_weightnet_hook(name):
+        def weightnet_hook(m, input):
+            n, _, h, w = input[0].size(0), input[0].size(
+                1), input[0].size(2), input[0].size(3)
+            oc = m.oup if hasattr(m, 'oup') else m.inp
+            group = 1 if hasattr(m, 'oup') else m.inp
+            # flops of group convolution: one group for each sample
+            # input: n*c*h*w
+            # weight: (n*oc)*c*kh*kw
+            flops_dict[name] = n * h * w * oc * m.inp * m.ksize * m.ksize / m.stride / m.stride / group
+
+        return weightnet_hook
+
     hooks = []
     for name, m in model.named_modules():
         if isinstance(m, torch.nn.Conv2d):
             h = m.register_forward_pre_hook(make_conv2d_hook(name))
             hooks.append(h)
+        elif isinstance(m, CondConv2d):
+            h = m.register_forward_pre_hook(make_condconv2d_hook(name))
+            hooks.append(h)
+        elif isinstance(m, WeightNet) or isinstance(m, WeightNet_DW):
+            h = m.register_forward_pre_hook(make_weightnet_hook(name))
+            hooks.append(h)
 
     input = torch.zeros(*input_shape).cuda()
+
+    model.eval()
     with torch.no_grad():
         _ = model(input)
 
+    model.train()
     total_flops = 0
     for k, v in flops_dict.items():
         # logger.info('module {}: {}'.format(k, v))
@@ -272,7 +357,8 @@ def param_group_all(model, config):
                 logger.info('   {}: {}'.format(k, v))
 
     for ptype, pconf in config.items():
-        logger.info('names for {}({}): {}'.format(ptype, len(names[ptype]), names[ptype]))
+        logger.info('names for {}({}): {}'.format(
+            ptype, len(names[ptype]), names[ptype]))
 
     return param_groups, type2num
 
@@ -291,6 +377,16 @@ def accuracy(output, target, topk=(1,)):
         correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
+
+
+def detailed_metrics(output, target):
+    precision_class = precision_score(target, output, average=None)
+    recall_class = recall_score(target, output, average=None)
+    f1_class = f1_score(target, output, average=None)
+    precision_avg = precision_score(target, output, average='micro')
+    recall_avg = recall_score(target, output, average='micro')
+    f1_avg = f1_score(target, output, average='micro')
+    return precision_class, recall_class, f1_class, precision_avg, recall_avg, f1_avg
 
 
 def load_state_model(model, state):
@@ -315,6 +411,22 @@ def load_state_optimizer(optimizer, state):
     optimizer.load_state_dict(state)
 
 
+def modify_state(state, config):
+    if hasattr(config, 'key'):
+        for key in config['key']:
+            if key == 'optimizer':
+                state.pop(key)
+            elif key == 'last_iter':
+                state['last_iter'] = 0
+            elif key == 'ema':
+                state.pop('ema')
+
+    if hasattr(config, 'model'):
+        for module in config['model']:
+            state['model'].pop(module)
+    return state
+
+
 def mixup_data(x, y, alpha=1.0):
     '''Returns mixed inputs, pairs of targets, and lambda'''
     if alpha > 0:
@@ -330,5 +442,39 @@ def mixup_data(x, y, alpha=1.0):
     return mixed_x, y_a, y_b, lam
 
 
-def mixup_criterion(criterion, pred, y_a, y_b, lam):
+def mix_criterion(criterion, pred, y_a, y_b, lam):
     return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
+
+
+def rand_bbox(size, lam):
+    W = size[2]
+    H = size[3]
+    cut_rat = np.sqrt(1. - lam)
+    cut_w = np.int(W * cut_rat)
+    cut_h = np.int(H * cut_rat)
+
+    # uniform
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+
+    bbx1 = np.clip(cx - cut_w // 2, 0, W)
+    bby1 = np.clip(cy - cut_h // 2, 0, H)
+    bbx2 = np.clip(cx + cut_w // 2, 0, W)
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
+
+    return bbx1, bby1, bbx2, bby2
+
+
+def cutmix_data(input, target, alpha=0.0):
+    lam = np.random.beta(alpha, alpha)
+    rand_index = torch.randperm(input.size()[0]).cuda()
+
+    target_a = target
+    target_b = target[rand_index]
+
+    # generate mixed sample
+    bbx1, bby1, bbx2, bby2 = rand_bbox(input.size(), lam)
+    input[:, :, bbx1:bbx2, bby1:bby2] = input[rand_index, :, bbx1:bbx2, bby1:bby2]
+    # adjust lambda to exactly match pixel ratio
+    lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (input.size()[-1] * input.size()[-2]))
+    return input, target_a, target_b, lam

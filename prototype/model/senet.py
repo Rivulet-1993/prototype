@@ -139,46 +139,55 @@ class SENet(nn.Module):
                  inplanes=128, input_3x3=True, downsample_kernel_size=3,
                  downsample_padding=1, num_classes=1000, bn=None):
         """
-        Parameters
-        ----------
-        block (nn.Module): Bottleneck class.
+        Arguments:
+
+        block (:obj:`nn.Module`): Bottleneck class.
             - For SENet154: SEBottleneck
             - For SE-ResNet models: SEResNetBottleneck
             - For SE-ResNeXt models:  SEResNeXtBottleneck
-        layers (list of ints): Number of residual blocks for 4 layers of the
-            network (layer1...layer4).
-        groups (int): Number of groups for the 3x3 convolution in each
+
+        layers (:obj:`list` of :obj:`ints`): Number of residual blocks for 4 layers of the
+            - network (layer1...layer4).
+
+        groups (:obj:`int`): Number of groups for the 3x3 convolution in each
             bottleneck block.
             - For SENet154: 64
             - For SE-ResNet models: 1
             - For SE-ResNeXt models:  32
-        reduction (int): Reduction ratio for Squeeze-and-Excitation modules.
+
+        reduction (:obj:`int`): Reduction ratio for Squeeze-and-Excitation modules.
             - For all models: 16
-        dropout_p (float or None): Drop probability for the Dropout layer.
+
+        dropout_p (:obj:`float` or :obj:`None`): Drop probability for the Dropout layer.
             If `None` the Dropout layer is not used.
             - For SENet154: 0.2
             - For SE-ResNet models: None
             - For SE-ResNeXt models: None
-        inplanes (int):  Number of input channels for layer1.
+
+        inplanes (:obj:`int`):  Number of input channels for layer1.
             - For SENet154: 128
             - For SE-ResNet models: 64
             - For SE-ResNeXt models: 64
-        input_3x3 (bool): If `True`, use three 3x3 convolutions instead of
+
+        input_3x3 (:obj:`bool`): If `True`, use three 3x3 convolutions instead of
             a single 7x7 convolution in layer0.
             - For SENet154: True
             - For SE-ResNet models: False
             - For SE-ResNeXt models: False
-        downsample_kernel_size (int): Kernel size for downsampling convolutions
+
+        downsample_kernel_size (:obj:`int`): Kernel size for downsampling convolutions
             in layer2, layer3 and layer4.
             - For SENet154: 3
             - For SE-ResNet models: 1
             - For SE-ResNeXt models: 1
-        downsample_padding (int): Padding for downsampling convolutions in
+
+        downsample_padding (:obj:`int`): Padding for downsampling convolutions in
             layer2, layer3 and layer4.
             - For SENet154: 1
             - For SE-ResNet models: 0
             - For SE-ResNeXt models: 0
-        num_classes (int): Number of outputs in `last_linear` layer.
+
+        num_classes (:obj:`int`): Number of outputs in `last_linear` layer.
             - For all models: 1000
         """
         super(SENet, self).__init__()
@@ -309,6 +318,9 @@ class SENet(nn.Module):
 
 
 def se_resnext50_32x4d(**kwargs):
+    """
+    Constructs a SE-ResNeXt-50 model.
+    """
     model = SENet(SEResNeXtBottleneck, [3, 4, 6, 3], groups=32, reduction=16,
                   dropout_p=None, inplanes=64, input_3x3=False,
                   downsample_kernel_size=1, downsample_padding=0, **kwargs)
@@ -316,6 +328,9 @@ def se_resnext50_32x4d(**kwargs):
 
 
 def se_resnext101_32x4d(**kwargs):
+    """
+    Constructs a SE-ResNeXt-101 model.
+    """
     model = SENet(SEResNeXtBottleneck, [3, 4, 23, 3], groups=32, reduction=16,
                   dropout_p=None, inplanes=64, input_3x3=False,
                   downsample_kernel_size=1, downsample_padding=0, **kwargs)

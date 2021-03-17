@@ -6,45 +6,52 @@ import pprint
 import time
 import datetime
 import torch
+import json
 import linklink as link
+import torch.nn.functional as F
 
 from .base_solver import BaseSolver
-from prototype.config import parse_config
-from prototype.utils.dist import link_dist, DistModule
+from prototype.utils.dist import link_dist, DistModule, broadcast_object
 from prototype.utils.misc import makedir, create_logger, get_logger, count_params, count_flops, \
     param_group_all, AverageMeter, accuracy, load_state_model, load_state_optimizer, mixup_data, \
-    mixup_criterion
+    mix_criterion, modify_state, cutmix_data, parse_config
 from prototype.utils.ema import EMA
 from prototype.model import model_entry
 from prototype.optimizer import optim_entry, FP16RMSprop, FP16SGD, FusedFP16SGD
 from prototype.lr_scheduler import scheduler_entry
-from prototype.data import make_imagenet_train_data, make_imagenet_val_data
+from prototype.data import build_imagenet_train_dataloader, build_imagenet_test_dataloader
+from prototype.data import build_custom_dataloader
 from prototype.loss_functions import LabelSmoothCELoss
+from prototype.utils.user_analysis_helper import send_info
 
 
 class ClsSolver(BaseSolver):
 
-    def __init__(self, config_file, recover=''):
+    def __init__(self, config_file):
         self.config_file = config_file
-        self.recover = recover
+        self.prototype_info = EasyDict()
         self.config = parse_config(config_file)
         self.setup_env()
         self.build_model()
         self.build_optimizer()
-        self.build_lr_scheduler()
         self.build_data()
+        self.build_lr_scheduler()
+        send_info(self.prototype_info)
 
     def setup_env(self):
         # dist
         self.dist = EasyDict()
         self.dist.rank, self.dist.world_size = link.get_rank(), link.get_world_size()
+        self.prototype_info.world_size = self.dist.world_size
         # directories
         self.path = EasyDict()
         self.path.root_path = os.path.dirname(self.config_file)
         self.path.save_path = os.path.join(self.path.root_path, 'checkpoints')
         self.path.event_path = os.path.join(self.path.root_path, 'events')
+        self.path.result_path = os.path.join(self.path.root_path, 'results')
         makedir(self.path.save_path)
         makedir(self.path.event_path)
+        makedir(self.path.result_path)
         # tb_logger
         if self.dist.rank == 0:
             self.tb_logger = SummaryWriter(self.path.event_path)
@@ -52,11 +59,14 @@ class ClsSolver(BaseSolver):
         create_logger(os.path.join(self.path.root_path, 'log.txt'))
         self.logger = get_logger(__name__)
         self.logger.info(f'config: {pprint.pformat(self.config)}')
-        self.logger.info(f"hostnames: {os.environ['SLURM_NODELIST']}")
-        # recover
-        if self.recover:
-            self.state = torch.load(self.recover, 'cpu')
-            self.logger.info(f"======= recovering from {self.recover}, keys={list(self.state.keys())}... =======")
+        if 'SLURM_NODELIST' in os.environ:
+            self.logger.info(f"hostnames: {os.environ['SLURM_NODELIST']}")
+        # load pretrain checkpoint
+        if hasattr(self.config.saver, 'pretrain'):
+            self.state = torch.load(self.config.saver.pretrain.path, 'cpu')
+            self.logger.info(f"Recovering from {self.config.saver.pretrain.path}, keys={list(self.state.keys())}")
+            if hasattr(self.config.saver.pretrain, 'ignore'):
+                self.state = modify_state(self.state, self.config.saver.pretrain.ignore)
         else:
             self.state = {}
             self.state['last_iter'] = 0
@@ -73,6 +83,7 @@ class ClsSolver(BaseSolver):
                     self.config.lms.kwargs.limit))
 
         self.model = model_entry(self.config.model)
+        self.prototype_info.model = self.config.model.type
         self.model.cuda()
 
         count_params(self.model)
@@ -94,14 +105,11 @@ class ClsSolver(BaseSolver):
             # function, then call link.fp16.init() before call model.half()
             if self.config.optimizer.get('fp16_normal_bn', False):
                 self.logger.info('using normal bn for fp16')
-                link.fp16.register_float_module(
-                    link.nn.SyncBatchNorm2d, cast_args=False)
-                link.fp16.register_float_module(
-                    torch.nn.BatchNorm2d, cast_args=False)
+                link.fp16.register_float_module(link.nn.SyncBatchNorm2d, cast_args=False)
+                link.fp16.register_float_module(torch.nn.BatchNorm2d, cast_args=False)
             if self.config.optimizer.get('fp16_normal_fc', False):
                 self.logger.info('using normal fc for fp16')
-                link.fp16.register_float_module(
-                    torch.nn.Linear, cast_args=True)
+                link.fp16.register_float_module(torch.nn.Linear, cast_args=True)
             link.fp16.init()
             self.model.half()
 
@@ -114,6 +122,7 @@ class ClsSolver(BaseSolver):
 
         opt_config = self.config.optimizer
         opt_config.kwargs.lr = self.config.lr_scheduler.kwargs.base_lr
+        self.prototype_info.optimizer = self.config.optimizer.type
 
         # make param_groups
         pconfig = {}
@@ -147,83 +156,91 @@ class ClsSolver(BaseSolver):
             self.ema.load_state_dict(self.state['ema'])
 
     def build_lr_scheduler(self):
+        self.prototype_info.lr_scheduler = self.config.lr_scheduler.type
+        if not getattr(self.config.lr_scheduler.kwargs, 'max_iter', False):
+            self.config.lr_scheduler.kwargs.max_iter = self.config.data.max_iter
         self.config.lr_scheduler.kwargs.optimizer = self.optimizer.optimizer if isinstance(self.optimizer, FP16SGD) or \
             isinstance(self.optimizer, FP16RMSprop) else self.optimizer
         self.config.lr_scheduler.kwargs.last_iter = self.state['last_iter']
         self.lr_scheduler = scheduler_entry(self.config.lr_scheduler)
 
     def build_data(self):
-        self.config.data.max_iter = self.config.lr_scheduler.kwargs.max_iter
         self.config.data.last_iter = self.state['last_iter']
-
-        if self.config.data.max_iter != self.config.data.last_iter:
-            self.train_data = make_imagenet_train_data(self.config.data)
+        if getattr(self.config.lr_scheduler.kwargs, 'max_iter', False):
+            self.config.data.max_iter = self.config.lr_scheduler.kwargs.max_iter
         else:
-            self.logger.info(
-                f"======= recovering from the max_iter: {self.config.data.max_iter} =======")
+            self.config.data.max_epoch = self.config.lr_scheduler.kwargs.max_epoch
 
-        self.val_data = make_imagenet_val_data(self.config.data)
+        if self.config.data.get('type', 'imagenet') == 'imagenet':
+            self.train_data = build_imagenet_train_dataloader(self.config.data)
+        else:
+            self.train_data = build_custom_dataloader('train', self.config.data)
+
+        if self.config.data.get('type', 'imagenet') == 'imagenet':
+            self.val_data = build_imagenet_test_dataloader(self.config.data)
+        else:
+            self.val_data = build_custom_dataloader('test', self.config.data)
 
     def pre_train(self):
         self.meters = EasyDict()
-        self.meters.batch_time = AverageMeter(self.config.print_freq)
-        self.meters.step_time = AverageMeter(self.config.print_freq)
-        self.meters.data_time = AverageMeter(self.config.print_freq)
-        self.meters.losses = AverageMeter(self.config.print_freq)
-        self.meters.top1 = AverageMeter(self.config.print_freq)
-        self.meters.top5 = AverageMeter(self.config.print_freq)
+        self.meters.batch_time = AverageMeter(self.config.saver.print_freq)
+        self.meters.step_time = AverageMeter(self.config.saver.print_freq)
+        self.meters.data_time = AverageMeter(self.config.saver.print_freq)
+        self.meters.losses = AverageMeter(self.config.saver.print_freq)
+        self.meters.top1 = AverageMeter(self.config.saver.print_freq)
+        self.meters.top5 = AverageMeter(self.config.saver.print_freq)
 
         self.model.train()
 
         label_smooth = self.config.get('label_smooth', 0.0)
-        num_classes = self.config.get('num_classes', 1000)
+        self.num_classes = self.config.model.kwargs.get('num_classes', 1000)
+        self.topk = 5 if self.num_classes >= 5 else self.num_classes
         if label_smooth > 0:
             self.logger.info('using label_smooth: {}'.format(label_smooth))
-            self.criterion = LabelSmoothCELoss(label_smooth, num_classes)
+            self.criterion = LabelSmoothCELoss(label_smooth, self.num_classes)
         else:
             self.criterion = torch.nn.CrossEntropyLoss()
         self.mixup = self.config.get('mixup', 1.0)
+        self.cutmix = self.config.get('cutmix', 0.0)
         if self.mixup < 1.0:
             self.logger.info('using mixup with alpha of: {}'.format(self.mixup))
+        if self.cutmix > 0.0:
+            self.logger.info('using cutmix with alpha of: {}'.format(self.cutmix))
 
     def train(self):
 
         self.pre_train()
-
         total_step = len(self.train_data['loader'])
         start_step = self.state['last_iter'] + 1
-
         end = time.time()
-
-        for i, (input, target) in enumerate(self.train_data['loader']):
+        for i, batch in enumerate(self.train_data['loader']):
+            input = batch['image']
+            target = batch['label']
             curr_step = start_step + i
             self.lr_scheduler.step(curr_step)
             # lr_scheduler.get_lr()[0] is the main lr
             current_lr = self.lr_scheduler.get_lr()[0]
-
             # measure data loading time
             self.meters.data_time.update(time.time() - end)
-
             # transfer input to gpu
             target = target.squeeze().cuda().long()
             input = input.cuda().half() if self.fp16 else input.cuda()
-
             # mixup
             if self.mixup < 1.0:
                 input, target_a, target_b, lam = mixup_data(input, target, self.mixup)
-
+            # cutmix
+            if self.cutmix > 0.0:
+                input, target_a, target_b, lam = cutmix_data(input, target, self.cutmix)
             # forward
             logits = self.model(input)
-
             # mixup
-            if self.mixup < 1.0:
-                loss = mixup_criterion(self.criterion, logits, target_a, target_b, lam)
+            if self.mixup < 1.0 or self.cutmix > 0.0:
+                loss = mix_criterion(self.criterion, logits, target_a, target_b, lam)
                 loss /= self.dist.world_size
             else:
                 loss = self.criterion(logits, target) / self.dist.world_size
-
             # measure accuracy and record loss
-            prec1, prec5 = accuracy(logits, target, topk=(1, 5))
+            prec1, prec5 = accuracy(logits, target, topk=(1, self.topk))
 
             reduced_loss = loss.clone()
             reduced_prec1 = prec1.clone() / self.dist.world_size
@@ -233,8 +250,8 @@ class ClsSolver(BaseSolver):
             self.meters.top1.reduce_update(reduced_prec1)
             self.meters.top5.reduce_update(reduced_prec5)
 
+            # compute and update gradient
             self.optimizer.zero_grad()
-
             if FusedFP16SGD is not None and isinstance(self.optimizer, FusedFP16SGD):
                 self.optimizer.backward(loss)
                 self.model.sync_gradients()
@@ -256,23 +273,18 @@ class ClsSolver(BaseSolver):
             # EMA
             if self.ema is not None:
                 self.ema.step(self.model, curr_step=curr_step)
-
             # measure elapsed time
             self.meters.batch_time.update(time.time() - end)
 
-            if curr_step % self.config.print_freq == 0 and self.dist.rank == 0:
-                self.tb_logger.add_scalar(
-                    'loss_train', self.meters.losses.avg, curr_step)
-                self.tb_logger.add_scalar(
-                    'acc1_train', self.meters.top1.avg, curr_step)
-                self.tb_logger.add_scalar(
-                    'acc5_train', self.meters.top5.avg, curr_step)
+            # training logger
+            if curr_step % self.config.saver.print_freq == 0 and self.dist.rank == 0:
+                self.tb_logger.add_scalar('loss_train', self.meters.losses.avg, curr_step)
+                self.tb_logger.add_scalar('acc1_train', self.meters.top1.avg, curr_step)
+                self.tb_logger.add_scalar('acc5_train', self.meters.top5.avg, curr_step)
                 self.tb_logger.add_scalar('lr', current_lr, curr_step)
-                remain_secs = (total_step - curr_step) * \
-                    self.meters.batch_time.avg
+                remain_secs = (total_step - curr_step) * self.meters.batch_time.avg
                 remain_time = datetime.timedelta(seconds=round(remain_secs))
-                finish_time = time.strftime(
-                    "%Y-%m-%d %H:%M:%S", time.localtime(time.time()+remain_secs))
+                finish_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()+remain_secs))
                 log_msg = f'Iter: [{curr_step}/{total_step}]\t' \
                     f'Time {self.meters.batch_time.val:.3f} ({self.meters.batch_time.avg:.3f})\t' \
                     f'Data {self.meters.data_time.val:.3f} ({self.meters.data_time.avg:.3f})\t' \
@@ -281,147 +293,99 @@ class ClsSolver(BaseSolver):
                     f'Prec@5 {self.meters.top5.val:.3f} ({self.meters.top5.avg:.3f})\t' \
                     f'LR {current_lr:.4f}\t' \
                     f'Remaining Time {remain_time} ({finish_time})'
-
                 self.logger.info(log_msg)
 
-            if curr_step > 0 and curr_step % self.config.val_freq == 0:
-                val_loss, prec1, prec5 = self.evaluate()
+            # testing during training
+            if curr_step > 0 and curr_step % self.config.saver.val_freq == 0:
+                metrics = self.evaluate()
                 if self.ema is not None:
                     self.ema.load_ema(self.model)
-                    val_loss_ema, prec1_ema, prec5_ema = self.evaluate()
+                    ema_metrics = self.evaluate()
                     self.ema.recover(self.model)
-                    if self.dist.rank == 0:
-                        self.tb_logger.add_scalars(
-                            'loss_val', {'ema': val_loss_ema}, curr_step)
-                        self.tb_logger.add_scalars(
-                            'acc1_val', {'ema': prec1_ema}, curr_step)
-                        self.tb_logger.add_scalars(
-                            'acc5_val', {'ema': prec5_ema}, curr_step)
+                    if self.dist.rank == 0 and self.config.data.test.evaluator.type == 'imagenet':
+                        metric_key = 'top{}'.format(self.topk)
+                        self.tb_logger.add_scalars('acc1_val', {'ema': ema_metrics.metric['top1']}, curr_step)
+                        self.tb_logger.add_scalars('acc5_val', {'ema': ema_metrics.metric[metric_key]}, curr_step)
 
-                if self.dist.rank == 0:
-                    self.tb_logger.add_scalar('loss_val', val_loss, curr_step)
-                    self.tb_logger.add_scalar('acc1_val', prec1, curr_step)
-                    self.tb_logger.add_scalar('acc5_val', prec5, curr_step)
+                # testing logger
+                if self.dist.rank == 0 and self.config.data.test.evaluator.type == 'imagenet':
+                    metric_key = 'top{}'.format(self.topk)
+                    self.tb_logger.add_scalar('acc1_val', metrics.metric['top1'], curr_step)
+                    self.tb_logger.add_scalar('acc5_val', metrics.metric[metric_key], curr_step)
 
+                # save ckpt
                 if self.dist.rank == 0:
-                    if self.config.save_many:
+                    if self.config.saver.save_many:
                         ckpt_name = f'{self.path.save_path}/ckpt_{curr_step}.pth.tar'
                     else:
                         ckpt_name = f'{self.path.save_path}/ckpt.pth.tar'
-
                     self.state['model'] = self.model.state_dict()
                     self.state['optimizer'] = self.optimizer.state_dict()
                     self.state['last_iter'] = curr_step
                     if self.ema is not None:
                         self.state['ema'] = self.ema.state_dict()
-
                     torch.save(self.state, ckpt_name)
 
             end = time.time()
 
-    def evaluate(self, fusion_list=None, fuse_prob=False):
-        batch_time = AverageMeter(0)
-        losses = AverageMeter(0)
-        top1 = AverageMeter(0)
-        top5 = AverageMeter(0)
-
-        # switch to evaluate mode
-        # if fusion_list is not None:
-        #     model_list = []
-        #     for i in range(len(fusion_list)):
-        #         model_list.append(model_entry(self.config.model))
-        #         model_list[i].cuda()
-        #         model_list[i] = DistModule(model_list[i], args.sync)
-        #         load_state(fusion_list[i], model_list[i])
-        #         model_list[i].eval()
-        #     if fuse_prob:
-        #         softmax = nn.Softmax(dim=1)
-        # else:
+    @torch.no_grad()
+    def evaluate(self):
         self.model.eval()
+        res_file = os.path.join(self.path.result_path, f'results.txt.rank{self.dist.rank}')
+        writer = open(res_file, 'w')
+        for batch_idx, batch in enumerate(self.val_data['loader']):
+            input = batch['image']
+            label = batch['label']
+            input = input.cuda().half() if self.fp16 else input.cuda()
+            label = label.squeeze().view(-1).cuda().long()
+            # compute output
+            logits = self.model(input)
+            scores = F.softmax(logits, dim=1)
+            # compute prediction
+            _, preds = logits.data.topk(k=1, dim=1)
+            preds = preds.view(-1)
+            # update batch information
+            batch.update({'prediction': preds})
+            batch.update({'score': scores})
+            # save prediction information
+            self.val_data['loader'].dataset.dump(writer, batch)
 
-        criterion = torch.nn.CrossEntropyLoss()
-        val_iter = len(self.val_data['loader'])
-
-        end = time.time()
-        with torch.no_grad():
-            for i, (input, target) in enumerate(self.val_data['loader']):
-                input = input.cuda().half() if self.fp16 else input.cuda()
-                target = target.squeeze().view(-1).cuda().long()
-                # compute output
-                # if fusion_list is not None:
-                #     output_list = []
-                #     for model_idx in range(len(fusion_list)):
-                #         tmp = model_list[model_idx](input)
-                #         if isinstance(tmp, dict):
-                #             output = tmp['logits']
-                #         else:
-                #             output = tmp
-                #         if fuse_prob:
-                #             output = softmax(output)
-                #         output_list.append(output)
-                #     output = torch.stack(output_list, 0)
-                #     output = torch.mean(output, 0)
-                # else:
-                logits = self.model(input)
-
-                # measure accuracy and record loss
-                # / world_size # loss should not be scaled here, it's reduced later!
-                loss = criterion(logits, target)
-                prec1, prec5 = accuracy(logits.data, target, topk=(1, 5))
-
-                num = input.size(0)
-                losses.update(loss.item(), num)
-                top1.update(prec1.item(), num)
-                top5.update(prec5.item(), num)
-
-                # measure elapsed time
-                batch_time.update(time.time() - end)
-                end = time.time()
-
-                if (i+1) % self.config.print_freq == 0:
-                    self.logger.info(f'Test: [{i+1}/{val_iter}]\tTime {batch_time.val:.3f} ({batch_time.avg:.3f})')
-
-        # gather final results
-        total_num = torch.Tensor([losses.count])
-        loss_sum = torch.Tensor([losses.avg*losses.count])
-        top1_sum = torch.Tensor([top1.avg*top1.count])
-        top5_sum = torch.Tensor([top5.avg*top5.count])
-        link.allreduce(total_num)
-        link.allreduce(loss_sum)
-        link.allreduce(top1_sum)
-        link.allreduce(top5_sum)
-        final_loss = loss_sum.item()/total_num.item()
-        final_top1 = top1_sum.item()/total_num.item()
-        final_top5 = top5_sum.item()/total_num.item()
-
-        self.logger.info(f' * Prec@1 {final_top1:.3f}\tPrec@5 {final_top5:.3f}\t\
-            Loss {final_loss:.3f}\ttotal_num={total_num.item()}')
-
+        writer.close()
+        link.barrier()
+        if self.dist.rank == 0:
+            metrics = self.val_data['loader'].dataset.evaluate(res_file)
+            self.logger.info(json.dumps(metrics.metric, indent=2))
+        else:
+            metrics = {}
+        link.barrier()
+        # broadcast metrics to other process
+        metrics = broadcast_object(metrics)
         self.model.train()
-
-        return final_loss, final_top1, final_top5
+        return metrics
 
 
 @link_dist
 def main():
-    parser = argparse.ArgumentParser(description='base solver')
+    parser = argparse.ArgumentParser(description='Classification Solver')
     parser.add_argument('--config', required=True, type=str)
-    parser.add_argument('--recover', type=str, default='')
     parser.add_argument('--evaluate', action='store_true')
 
     args = parser.parse_args()
-
-    # build or recover solver
-    solver = ClsSolver(args.config, recover=args.recover)
-
+    # build solver
+    solver = ClsSolver(args.config)
     # evaluate or train
     if args.evaluate:
-        if not args.recover:
-            solver.logger.warn(
-                'evaluating without recovring any solver checkpoints')
+        if not hasattr(solver.config.saver, 'pretrain'):
+            solver.logger.warn('Evaluating without resuming any solver checkpoints.')
         solver.evaluate()
+        if solver.ema is not None:
+            solver.ema.load_ema(solver.model)
+            solver.evaluate()
     else:
-        solver.train()
+        if solver.config.data.last_iter < solver.config.data.max_iter:
+            solver.train()
+        else:
+            solver.logger.info('Training has been completed to max_iter!')
 
 
 if __name__ == '__main__':
